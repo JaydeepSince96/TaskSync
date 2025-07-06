@@ -9,8 +9,8 @@ class TaskService {
   }
 
   // Create a new task
-  async createTask(title: string, label: TaskLabel, dueDate: Date): Promise<ITask> {
-    const task = new Task({ title, label, dueDate });
+  async createTask(title: string, label: TaskLabel, startDate: Date, dueDate: Date): Promise<ITask> {
+    const task = new Task({ title, label, startDate, dueDate });
     return await task.save();
   }
 

@@ -18,6 +18,7 @@ class TaskController {
   private formatTaskResponse(todo: any) {
     return {
       ...todo.toObject(),
+      startDate: this.formatDate(new Date(todo.startDate)),
       dueDate: this.formatDate(new Date(todo.dueDate)),
       createdAt: this.formatDate(new Date(todo.createdAt)),
       updatedAt: this.formatDate(new Date(todo.updatedAt))
@@ -63,37 +64,89 @@ class TaskController {
     try {
       const { title, label, startDate, dueDate } = req.body;
       
-      if (!dueDate && !startDate) {
+      if (!dueDate || !startDate) {
         res.status(400).json({ 
           success: false, 
-          message: "Dates are required" 
+          message: "Both start date and due date are required" 
         });
         return;
       }
 
-      // Try different date formats
-      let parsedDate: Date;
-      if (typeof dueDate === 'string') {
-        // Try parsing as ISO string
-        parsedDate = new Date(dueDate);
-        
-        // If invalid, try parsing as simple date string (YYYY-MM-DD)
-        if (isNaN(parsedDate.getTime())) {
-          const [year, month, day] = dueDate.split('-');
-          if (year && month && day) {
-            parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      // Parse start date
+      let parsedStartDate: Date;
+      if (typeof startDate === 'string') {
+        // Try parsing as dd/mm/yyyy format first
+        if (startDate.includes('/')) {
+          const [day, month, year] = startDate.split('/');
+          if (day && month && year) {
+            parsedStartDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          } else {
+            parsedStartDate = new Date(NaN); // Invalid date
+          }
+        } else {
+          // Try parsing as ISO string
+          parsedStartDate = new Date(startDate);
+          
+          // If invalid, try parsing as simple date string (YYYY-MM-DD)
+          if (isNaN(parsedStartDate.getTime())) {
+            const [year, month, day] = startDate.split('-');
+            if (year && month && day) {
+              parsedStartDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+            }
           }
         }
       } else {
-        parsedDate = new Date(dueDate);
+        parsedStartDate = new Date(startDate);
       }
 
-      if (isNaN(parsedDate.getTime())) {
+      if (isNaN(parsedStartDate.getTime())) {
         res.status(400).json({ 
           success: false, 
-          message: "Invalid date format. Please use either:\n" +
-                  "1. ISO format (e.g., 2024-03-25T10:00:00Z)\n" +
-                  "2. Simple date format (e.g., 2024-03-25)" 
+          message: "Invalid start date format. Please use dd/mm/yyyy format (e.g., 25/03/2024)" 
+        });
+        return;
+      }
+
+      // Parse due date
+      let parsedDueDate: Date;
+      if (typeof dueDate === 'string') {
+        // Try parsing as dd/mm/yyyy format first
+        if (dueDate.includes('/')) {
+          const [day, month, year] = dueDate.split('/');
+          if (day && month && year) {
+            parsedDueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          } else {
+            parsedDueDate = new Date(NaN); // Invalid date
+          }
+        } else {
+          // Try parsing as ISO string
+          parsedDueDate = new Date(dueDate);
+          
+          // If invalid, try parsing as simple date string (YYYY-MM-DD)
+          if (isNaN(parsedDueDate.getTime())) {
+            const [year, month, day] = dueDate.split('-');
+            if (year && month && day) {
+              parsedDueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+            }
+          }
+        }
+      } else {
+        parsedDueDate = new Date(dueDate);
+      }
+
+      if (isNaN(parsedDueDate.getTime())) {
+        res.status(400).json({ 
+          success: false, 
+          message: "Invalid due date format. Please use dd/mm/yyyy format (e.g., 25/03/2024)" 
+        });
+        return;
+      }
+
+      // Validate that start date is before due date
+      if (parsedStartDate >= parsedDueDate) {
+        res.status(400).json({ 
+          success: false, 
+          message: "Start date must be before due date" 
         });
         return;
       }
@@ -101,12 +154,12 @@ class TaskController {
       if (!Object.values(TaskLabel).includes(label)) {
         res.status(400).json({ 
           success: false, 
-          message: "Invalid label. Must be one of: less important, important, very important" 
+          message: "Invalid label. Must be one of: low priority, medium priority, high priority, priority" 
         });
         return;
       }
 
-      const task = await TaskService.createTask(title, label, parsedDate);
+      const task = await TaskService.createTask(title, label, parsedStartDate, parsedDueDate);
       const formattedTodo = this.formatTaskResponse(task);
       res.status(201).json({ success: true, data: formattedTodo });
     } catch (error) {
@@ -134,11 +187,24 @@ class TaskController {
       let parsedDate: Date | undefined;
       if (dueDate) {
         if (typeof dueDate === 'string') {
-          parsedDate = new Date(dueDate);
-          if (isNaN(parsedDate.getTime())) {
-            const [year, month, day] = dueDate.split('-');
-            if (year && month && day) {
+          // Try parsing as dd/mm/yyyy format first
+          if (dueDate.includes('/')) {
+            const [day, month, year] = dueDate.split('/');
+            if (day && month && year) {
               parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+            } else {
+              parsedDate = new Date(NaN); // Invalid date
+            }
+          } else {
+            // Try parsing as ISO string
+            parsedDate = new Date(dueDate);
+            
+            // If invalid, try parsing as simple date string (YYYY-MM-DD)
+            if (isNaN(parsedDate.getTime())) {
+              const [year, month, day] = dueDate.split('-');
+              if (year && month && day) {
+                parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+              }
             }
           }
         } else {
@@ -148,9 +214,7 @@ class TaskController {
         if (isNaN(parsedDate.getTime())) {
           res.status(400).json({ 
             success: false, 
-            message: "Invalid date format. Please use either:\n" +
-                    "1. ISO format (e.g., 2024-03-25T10:00:00Z)\n" +
-                    "2. Simple date format (e.g., 2024-03-25)" 
+            message: "Invalid date format. Please use dd/mm/yyyy format (e.g., 25/03/2024)" 
           });
           return;
         }
