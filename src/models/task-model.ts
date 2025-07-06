@@ -1,30 +1,33 @@
 // src/models/Todo.ts
 import { Schema, model, Document } from "mongoose";
 
-export enum TodoLabel {
-  LESS_IMPORTANT = "less important",
-  IMPORTANT = "important",
-  VERY_IMPORTANT = "very important"
+export enum TaskLabel {
+  LOW_PRIORITY = "low priority",
+  MEDIUM_PRIORITYNT = "medium priority",
+  HIGH_PRIORITY = "high priority",
+  PRIORITY = "priority"
 }
 
-export interface ITodo extends Document {
+export interface ITask extends Document {
   title: string;
   completed: boolean;
   createdAt: Date;
   updatedAt: Date;
-  label: TodoLabel;
+  label: TaskLabel;
+  startDate:Date;
   dueDate: Date;
 }
 
-const TodoSchema = new Schema<ITodo>(
+const TaskSchema = new Schema<ITask>(
   {
     title: { type: String, required: true },
     completed: { type: Boolean, default: false },
     label: { 
       type: String, 
-      enum: Object.values(TodoLabel),
-      default: TodoLabel.LESS_IMPORTANT 
+      enum: Object.values(TaskLabel),
+      default: TaskLabel.PRIORITY 
     },
+    startDate:{type:Date,required:true},
     dueDate: { type: Date, required: true },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
@@ -32,4 +35,4 @@ const TodoSchema = new Schema<ITodo>(
   { timestamps: true }
 );
 
-export default model<ITodo>("Todo", TodoSchema);
+export default model<ITask>("Task", TaskSchema);

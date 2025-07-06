@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import { connectDB } from "./utils/db";
 import { PORT } from "./configs/env";
-import todoRoutes from "./routes/todoRoute";
+import taskRoute from "./routes/task-route";
 
 const app = express();
 
@@ -21,7 +21,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 // Routes
-app.use("/api/todos", todoRoutes);
+app.use("/api/task", taskRoute);
 
 // Connect to MongoDB and start the server
 connectDB().then(() => {

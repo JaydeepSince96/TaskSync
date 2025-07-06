@@ -1,16 +1,16 @@
 // src/routes/todoRoutes.ts
 import express from "express";
-import todoController from "../controllers/todoController";
-import statsRoute from "./statsRoute";
+import TaskController from "../controllers/task-controller";
+import statsRoute from "./stats-route";
 
 const router = express.Router();
 
 // Todo routes
-router.get("/labels", todoController.getLabelOptions);
-router.get("/", todoController.getAllTodos);
-router.post("/", todoController.createTodo);
-router.put("/:id", todoController.updateTodo);
-router.delete("/:id", todoController.deleteTodo);
+router.get("/labels", TaskController.GetLabelOptions);
+router.get("/", TaskController.GetAllTask);
+router.post("/", TaskController.CreateNewTask);
+router.put("/:id", TaskController.UpdateTask);
+router.delete("/:id", TaskController.DeleteTask);
 
 // Stats routes
 router.use("/stats", statsRoute);

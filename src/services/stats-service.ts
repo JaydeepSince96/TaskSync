@@ -1,6 +1,6 @@
 // src/services/StatsService.ts
-import { TodoLabel } from "../models/todo";
-import Todo from "../models/todo";
+import { TaskLabel } from "../models/task-model";
+import Task from "../models/task-model";
 
 interface TodoStats {
   label: string;
@@ -13,8 +13,8 @@ interface TodoStats {
 
 class StatsService {
   // Get todo statistics by label
-  async getTodoStats(): Promise<TodoStats[]> {
-    const stats = await Todo.aggregate([
+  async getTaskStats(): Promise<TodoStats[]> {
+    const stats = await Task.aggregate([
       {
         $group: {
           _id: "$label",
@@ -60,7 +60,7 @@ class StatsService {
     ]);
 
     // Add labels with zero todos
-    const allLabels = Object.values(TodoLabel);
+    const allLabels = Object.values(TaskLabel);
     const existingLabels = stats.map(stat => stat.label);
     
     allLabels.forEach(label => {
@@ -82,18 +82,18 @@ class StatsService {
 
   // Get overall statistics
   async getOverallStats() {
-    const stats = await Todo.aggregate([
+    const stats = await Task.aggregate([
       {
         $group: {
           _id: null,
-          totalTodos: { $sum: 1 },
-          completedTodos: {
+          totalTask: { $sum: 1 },
+          completedTask: {
             $sum: { $cond: [{ $eq: ["$completed", true] }, 1, 0] }
           },
-          notCompletedTodos: {
+          notCompletedTask: {
             $sum: { $cond: [{ $eq: ["$completed", false] }, 1, 0] }
           },
-          overdueTodos: {
+          overdueTask: {
             $sum: {
               $cond: [
                 {
@@ -112,13 +112,13 @@ class StatsService {
       {
         $project: {
           _id: 0,
-          totalTodos: 1,
-          completedTodos: 1,
-          notCompletedTodos: 1,
-          overdueTodos: 1,
+          totalTask: 1,
+          completedTask: 1,
+          notCompletedTask: 1,
+          overdueTask: 1,
           completionRate: {
             $multiply: [
-              { $divide: ["$completedTodos", { $max: ["$totalTodos", 1] }] },
+              { $divide: ["$completedTask", { $max: ["$totalTask", 1] }] },
               100
             ]
           }
@@ -127,10 +127,10 @@ class StatsService {
     ]);
 
     return stats[0] || {
-      totalTodos: 0,
-      completedTodos: 0,
-      notCompletedTodos: 0,
-      overdueTodos: 0,
+      totalTask: 0,
+      completedTask: 0,
+      notCompletedTask: 0,
+      overdueTask: 0,
       completionRate: 0
     };
   }

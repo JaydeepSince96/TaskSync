@@ -1,15 +1,15 @@
 // src/controllers/StatsController.ts
 import { Request, Response, RequestHandler } from "express";
-import statsService from "../services/statsService";
+import statsService from "../services/stats-service";
 
 class StatsController {
   // Get todo statistics
-  getTodoStats: RequestHandler = async (req, res) => {
+  getTaskStats: RequestHandler = async (req, res) => {
     console.log("Stats endpoint hit");
     try {
       console.log("Fetching stats from service");
       const [labelStats, overallStats] = await Promise.all([
-        statsService.getTodoStats(),
+        statsService.getTaskStats(),
         statsService.getOverallStats()
       ]);
       

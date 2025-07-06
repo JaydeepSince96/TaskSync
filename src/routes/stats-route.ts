@@ -1,6 +1,6 @@
 // src/routes/statsRoute.ts
 import express from "express";
-import statsController from "../controllers/statsController";
+import statsController from "../controllers/stats-controller";
 
 const router = express.Router();
 
@@ -10,6 +10,6 @@ router.get("/test", (req, res) => {
 });
 
 // Stats route
-router.get("/", statsController.getTodoStats);
+router.get("/", statsController.getTaskStats);
 
 export default router; 

@@ -1,9 +1,9 @@
 // src/controllers/TodoController.ts
 import { Request, Response, RequestHandler } from "express";
-import todoService from "../services/todoService";
-import { TodoLabel } from "../models/todo";
+import TaskService from "../services/task-service";
+import { TaskLabel } from "../models/task-model";
 
-class TodoController {
+class TaskController {
   // Helper function to format date
   private formatDate(date: Date): string {
     const day = date.getDate().toString().padStart(2, '0');
@@ -15,7 +15,7 @@ class TodoController {
   }
 
   // Helper function to format todo response
-  private formatTodoResponse(todo: any) {
+  private formatTaskResponse(todo: any) {
     return {
       ...todo.toObject(),
       dueDate: this.formatDate(new Date(todo.dueDate)),
@@ -25,9 +25,9 @@ class TodoController {
   }
 
   // Get available label options
-  getLabelOptions: RequestHandler = async (req, res) => {
+  GetLabelOptions: RequestHandler = async (req, res) => {
     try {
-      const labels = Object.values(TodoLabel).map(label => ({
+      const labels = Object.values(TaskLabel).map(label => ({
         value: label,
         label: label.charAt(0).toUpperCase() + label.slice(1)
       }));
@@ -40,15 +40,15 @@ class TodoController {
     }
   };
 
-  // Get all todos
-  getAllTodos: RequestHandler = async (req, res) => {
+  // Get all task
+  GetAllTask: RequestHandler = async (req, res) => {
     try {
-      const todos = await todoService.getAllTodos();
+      const todos = await TaskService.getAllTask();
       if (!todos) {
         res.status(404).json({ success: false, message: "No todos found" });
         return;
       }
-      const formattedTodos = todos.map(todo => this.formatTodoResponse(todo));
+      const formattedTodos = todos.map(todo => this.formatTaskResponse(todo));
       res.status(200).json({ success: true, data: formattedTodos });
     } catch (error) {
       res.status(500).json({
@@ -58,15 +58,15 @@ class TodoController {
     }
   };
 
-  // Create a new todo
-  createTodo: RequestHandler = async (req, res) => {
+  // Create a new task
+  CreateNewTask: RequestHandler = async (req, res) => {
     try {
-      const { title, label, dueDate } = req.body;
+      const { title, label, startDate, dueDate } = req.body;
       
-      if (!dueDate) {
+      if (!dueDate && !startDate) {
         res.status(400).json({ 
           success: false, 
-          message: "Due date is required" 
+          message: "Dates are required" 
         });
         return;
       }
@@ -98,7 +98,7 @@ class TodoController {
         return;
       }
 
-      if (!Object.values(TodoLabel).includes(label)) {
+      if (!Object.values(TaskLabel).includes(label)) {
         res.status(400).json({ 
           success: false, 
           message: "Invalid label. Must be one of: less important, important, very important" 
@@ -106,8 +106,8 @@ class TodoController {
         return;
       }
 
-      const todo = await todoService.createTodo(title, label, parsedDate);
-      const formattedTodo = this.formatTodoResponse(todo);
+      const task = await TaskService.createTask(title, label, parsedDate);
+      const formattedTodo = this.formatTaskResponse(task);
       res.status(201).json({ success: true, data: formattedTodo });
     } catch (error) {
       res.status(500).json({
@@ -117,16 +117,16 @@ class TodoController {
     }
   };
 
-  // Update a todo
-  updateTodo: RequestHandler = async (req, res) => {
+  // Update a task
+  UpdateTask: RequestHandler = async (req, res) => {
     try {
       const { id } = req.params;
       const { completed, label, dueDate } = req.body;
 
-      if (label && !Object.values(TodoLabel).includes(label)) {
+      if (label && !Object.values(TaskLabel).includes(label)) {
         res.status(400).json({ 
           success: false, 
-          message: "Invalid label. Must be one of: less important, important, very important" 
+          message: "Invalid label. Must be one of: High Priority, Medium Priority, Low Priority" 
         });
         return;
       }
@@ -156,7 +156,7 @@ class TodoController {
         }
       }
 
-      const todo = await todoService.updateTodo(
+      const todo = await TaskService.updateTask(
         id,
         completed,
         label,
@@ -166,7 +166,7 @@ class TodoController {
         res.status(404).json({ success: false, message: "Todo not found" });
         return;
       }
-      const formattedTodo = this.formatTodoResponse(todo);
+      const formattedTodo = this.formatTaskResponse(todo);
       res.status(200).json({ success: true, data: formattedTodo });
     } catch (error) {
       res.status(500).json({
@@ -176,11 +176,11 @@ class TodoController {
     }
   };
 
-  // Delete a todo
-  deleteTodo: RequestHandler = async (req, res) => {
+  // Delete a task
+  DeleteTask: RequestHandler = async (req, res) => {
     try {
       const { id } = req.params;
-      await todoService.deleteTodo(id);
+      await TaskService.deleteTask(id);
       res.status(204).json({ success: true, message: "Todo deleted successfully" });
     } catch (error) {
       res.status(500).json({
@@ -191,4 +191,4 @@ class TodoController {
   };
 }
 
-export default new TodoController();
+export default new TaskController();
