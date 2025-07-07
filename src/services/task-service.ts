@@ -1,6 +1,7 @@
 // src/services/TodoService.ts
 import { ITask, TaskLabel } from "../models/task-model";
 import Task from "../models/task-model";
+import SubtaskService from "./subtask-service";
 
 class TaskService {
   // Get all task
@@ -23,6 +24,9 @@ class TaskService {
 
   // Delete a task
   async deleteTask(id: string): Promise<void> {
+    // First delete all subtasks associated with this task
+    await SubtaskService.deleteSubtasksByTaskId(id);
+    // Then delete the main task
     await Task.findByIdAndDelete(id);
   }
 }
