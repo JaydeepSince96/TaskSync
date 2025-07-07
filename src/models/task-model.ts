@@ -3,9 +3,8 @@ import { Schema, model, Document } from "mongoose";
 
 export enum TaskLabel {
   LOW_PRIORITY = "low priority",
-  MEDIUM_PRIORITYNT = "medium priority",
-  HIGH_PRIORITY = "high priority",
-  PRIORITY = "priority"
+  MEDIUM_PRIORITY = "medium priority",
+  HIGH_PRIORITY = "high priority"
 }
 
 export interface ITask extends Document {
@@ -25,7 +24,7 @@ const TaskSchema = new Schema<ITask>(
     label: { 
       type: String, 
       enum: Object.values(TaskLabel),
-      default: TaskLabel.PRIORITY 
+      default: TaskLabel.LOW_PRIORITY 
     },
     startDate:{type:Date,required:true},
     dueDate: { type: Date, required: true },
