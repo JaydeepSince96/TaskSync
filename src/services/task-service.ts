@@ -49,9 +49,33 @@ class TaskService {
     // Build the query object
     const query: any = {};
 
-    // Search by ID (partial match)
+    // Search by ID (exact match or partial match)
     if (searchId && searchId.trim()) {
-      query._id = { $regex: searchId.trim(), $options: 'i' };
+      const trimmedId = searchId.trim();
+      try {
+        // Try exact ObjectId match first
+        if (trimmedId.length === 24) {
+          query._id = trimmedId;
+        } else {
+          // For partial matches, convert ObjectId to string and use regex
+          query.$expr = {
+            $regexMatch: {
+              input: { $toString: "$_id" },
+              regex: trimmedId,
+              options: "i"
+            }
+          };
+        }
+      } catch (error) {
+        // If not a valid ObjectId, search in the string representation
+        query.$expr = {
+          $regexMatch: {
+            input: { $toString: "$_id" },
+            regex: trimmedId,
+            options: "i"
+          }
+        };
+      }
     }
 
     // Filter by priority
@@ -86,22 +110,32 @@ class TaskService {
       }
     }
 
-    // Filter by date range
+    // Filter by date range (based on task start and due dates)
     if (startDate || endDate) {
-      query.createdAt = {};
+      const dateQuery: any = {};
       
-      if (startDate) {
-        // Start of the day
+      if (startDate && endDate) {
+        // If both dates are provided, find tasks that overlap with the date range
+        // Task overlaps if: task.startDate <= endDate AND task.dueDate >= startDate
+        const rangeStart = new Date(startDate);
+        const rangeEnd = new Date(endDate);
+        rangeStart.setHours(0, 0, 0, 0);
+        rangeEnd.setHours(23, 59, 59, 999);
+        
+        query.$and = [
+          { startDate: { $lte: rangeEnd } },
+          { dueDate: { $gte: rangeStart } }
+        ];
+      } else if (startDate) {
+        // Only start date provided - find tasks that end after this date
         const start = new Date(startDate);
         start.setHours(0, 0, 0, 0);
-        query.createdAt.$gte = start;
-      }
-      
-      if (endDate) {
-        // End of the day
+        query.dueDate = { $gte: start };
+      } else if (endDate) {
+        // Only end date provided - find tasks that start before this date
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999);
-        query.createdAt.$lte = end;
+        query.startDate = { $lte: end };
       }
     }
 
