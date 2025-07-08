@@ -59,6 +59,32 @@ class TaskController {
     }
   };
 
+  // Get single task by ID
+  GetTaskById: RequestHandler = async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      if (!id) {
+        res.status(400).json({ success: false, message: "Task ID is required" });
+        return;
+      }
+
+      const task = await TaskService.getTaskById(id);
+      if (!task) {
+        res.status(404).json({ success: false, message: "Task not found" });
+        return;
+      }
+
+      const formattedTask = this.formatTaskResponse(task);
+      res.status(200).json({ success: true, data: formattedTask });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: `Error fetching task: ${error}`,
+      });
+    }
+  };
+
   // Get filtered tasks
   GetFilteredTasks: RequestHandler = async (req, res) => {
     try {

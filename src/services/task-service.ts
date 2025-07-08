@@ -19,6 +19,16 @@ class TaskService {
     return await Task.find({}).sort({ dueDate: 1 });
   }
 
+  // Get single task by ID
+  async getTaskById(id: string): Promise<ITask | null> {
+    try {
+      return await Task.findById(id);
+    } catch (error) {
+      console.error('Error fetching task by ID:', error);
+      throw new Error('Invalid task ID format');
+    }
+  }
+
   // Get filtered tasks
   async getFilteredTasks(filters: TaskFilterOptions): Promise<{
     tasks: ITask[];

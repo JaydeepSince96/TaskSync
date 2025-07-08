@@ -8,13 +8,15 @@ const router = express.Router();
 // Todo routes
 router.get("/labels", TaskController.GetLabelOptions);
 router.get("/filtered", TaskController.GetFilteredTasks); // Add this before the general GET route
+
+// Stats routes - MUST come before /:id route to avoid conflicts
+router.use("/stats", statsRoute);
+
+router.get("/:id", TaskController.GetTaskById); // Get single task by ID
 router.get("/", TaskController.GetAllTask);
 router.post("/", TaskController.CreateNewTask);
 router.put("/:id", TaskController.UpdateTask);
 router.delete("/:id", TaskController.DeleteTask);
-
-// Stats routes
-router.use("/stats", statsRoute);
 
 
 //router.use() is a middleware function that is used to mount a complete router or middleware at a specific path. It's like saying "take all the routes defined in this router and mount them under this path". When you use router.use("/stats", statsRoute), it means:
