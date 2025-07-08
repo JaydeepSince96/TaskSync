@@ -16,10 +16,16 @@ class TaskService {
   }
 
   // Update a task
-  async updateTask(id: string, completed: boolean, label: TaskLabel, dueDate?: Date): Promise<ITask | null> {
-    const updateData: any = { completed, label };
-    if (dueDate) updateData.dueDate = dueDate;
-    return await Task.findByIdAndUpdate(id, updateData, { new: true });
+  async updateTask(id: string, updateData: { title?: string; completed?: boolean; label?: TaskLabel; startDate?: Date; dueDate?: Date }): Promise<ITask | null> {
+    const filteredUpdateData: any = {};
+    
+    if (updateData.title !== undefined) filteredUpdateData.title = updateData.title;
+    if (updateData.completed !== undefined) filteredUpdateData.completed = updateData.completed;
+    if (updateData.label !== undefined) filteredUpdateData.label = updateData.label;
+    if (updateData.startDate !== undefined) filteredUpdateData.startDate = updateData.startDate;
+    if (updateData.dueDate !== undefined) filteredUpdateData.dueDate = updateData.dueDate;
+    
+    return await Task.findByIdAndUpdate(id, filteredUpdateData, { new: true });
   }
 
   // Delete a task
