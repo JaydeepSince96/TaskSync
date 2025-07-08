@@ -59,6 +59,54 @@ class TaskController {
     }
   };
 
+  // Get filtered tasks
+  GetFilteredTasks: RequestHandler = async (req, res) => {
+    try {
+      const {
+        searchId,
+        priority,
+        status,
+        startDate,
+        endDate,
+        page = '1',
+        limit = '10'
+      } = req.query;
+
+      const filters = {
+        searchId: searchId as string,
+        priority: priority as string,
+        status: status as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+        page: parseInt(page as string, 10),
+        limit: parseInt(limit as string, 10)
+      };
+
+      const result = await TaskService.getFilteredTasks(filters);
+      
+      const formattedTasks = result.tasks.map(task => this.formatTaskResponse(task));
+      
+      res.status(200).json({
+        success: true,
+        data: {
+          tasks: formattedTasks,
+          pagination: {
+            totalCount: result.totalCount,
+            totalPages: result.totalPages,
+            currentPage: result.currentPage,
+            hasNextPage: result.currentPage < result.totalPages,
+            hasPrevPage: result.currentPage > 1
+          }
+        }
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: `Error fetching filtered tasks: ${error}`,
+      });
+    }
+  };
+
   // Create a new task
   CreateNewTask: RequestHandler = async (req, res) => {
     try {

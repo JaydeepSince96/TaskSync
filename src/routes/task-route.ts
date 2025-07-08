@@ -7,6 +7,7 @@ const router = express.Router();
 
 // Todo routes
 router.get("/labels", TaskController.GetLabelOptions);
+router.get("/filtered", TaskController.GetFilteredTasks); // Add this before the general GET route
 router.get("/", TaskController.GetAllTask);
 router.post("/", TaskController.CreateNewTask);
 router.put("/:id", TaskController.UpdateTask);
