@@ -153,21 +153,22 @@ class TaskController {
         if (startDate.includes('/')) {
           const [day, month, year] = startDate.split('/');
           if (day && month && year) {
-            parsedStartDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+            // Create date at noon to avoid timezone issues
+            parsedStartDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
           } else {
             parsedStartDate = new Date(NaN); // Invalid date
+          }
+        } else if (startDate.includes('-')) {
+          // Handle YYYY-MM-DD format
+          const [year, month, day] = startDate.split('-');
+          if (year && month && day) {
+            parsedStartDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
+          } else {
+            parsedStartDate = new Date(NaN);
           }
         } else {
           // Try parsing as ISO string
           parsedStartDate = new Date(startDate);
-          
-          // If invalid, try parsing as simple date string (YYYY-MM-DD)
-          if (isNaN(parsedStartDate.getTime())) {
-            const [year, month, day] = startDate.split('-');
-            if (year && month && day) {
-              parsedStartDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-            }
-          }
         }
       } else {
         parsedStartDate = new Date(startDate);
@@ -188,21 +189,22 @@ class TaskController {
         if (dueDate.includes('/')) {
           const [day, month, year] = dueDate.split('/');
           if (day && month && year) {
-            parsedDueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+            // Create date at noon to avoid timezone issues
+            parsedDueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
           } else {
             parsedDueDate = new Date(NaN); // Invalid date
+          }
+        } else if (dueDate.includes('-')) {
+          // Handle YYYY-MM-DD format
+          const [year, month, day] = dueDate.split('-');
+          if (year && month && day) {
+            parsedDueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
+          } else {
+            parsedDueDate = new Date(NaN);
           }
         } else {
           // Try parsing as ISO string
           parsedDueDate = new Date(dueDate);
-          
-          // If invalid, try parsing as simple date string (YYYY-MM-DD)
-          if (isNaN(parsedDueDate.getTime())) {
-            const [year, month, day] = dueDate.split('-');
-            if (year && month && day) {
-              parsedDueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-            }
-          }
         }
       } else {
         parsedDueDate = new Date(dueDate);
@@ -216,11 +218,11 @@ class TaskController {
         return;
       }
 
-      // Validate that start date is before due date
-      if (parsedStartDate >= parsedDueDate) {
+      // Validate that start date is not after due date (allow same date)
+      if (parsedStartDate > parsedDueDate) {
         res.status(400).json({ 
           success: false, 
-          message: "Start date must be before due date" 
+          message: "Start date cannot be after due date" 
         });
         return;
       }
@@ -272,21 +274,22 @@ class TaskController {
           if (startDate.includes('/')) {
             const [day, month, year] = startDate.split('/');
             if (day && month && year) {
-              parsedStartDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+              // Create date at noon to avoid timezone issues
+              parsedStartDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
             } else {
               parsedStartDate = new Date(NaN); // Invalid date
+            }
+          } else if (startDate.includes('-')) {
+            // Handle YYYY-MM-DD format
+            const [year, month, day] = startDate.split('-');
+            if (year && month && day) {
+              parsedStartDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
+            } else {
+              parsedStartDate = new Date(NaN);
             }
           } else {
             // Try parsing as ISO string
             parsedStartDate = new Date(startDate);
-            
-            // If invalid, try parsing as simple date string (YYYY-MM-DD)
-            if (isNaN(parsedStartDate.getTime())) {
-              const [year, month, day] = startDate.split('-');
-              if (year && month && day) {
-                parsedStartDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-              }
-            }
           }
         } else {
           parsedStartDate = new Date(startDate);
@@ -310,21 +313,22 @@ class TaskController {
           if (dueDate.includes('/')) {
             const [day, month, year] = dueDate.split('/');
             if (day && month && year) {
-              parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+              // Create date at noon to avoid timezone issues
+              parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
             } else {
               parsedDate = new Date(NaN); // Invalid date
+            }
+          } else if (dueDate.includes('-')) {
+            // Handle YYYY-MM-DD format
+            const [year, month, day] = dueDate.split('-');
+            if (year && month && day) {
+              parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
+            } else {
+              parsedDate = new Date(NaN);
             }
           } else {
             // Try parsing as ISO string
             parsedDate = new Date(dueDate);
-            
-            // If invalid, try parsing as simple date string (YYYY-MM-DD)
-            if (isNaN(parsedDate.getTime())) {
-              const [year, month, day] = dueDate.split('-');
-              if (year && month && day) {
-                parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-              }
-            }
           }
         } else {
           parsedDate = new Date(dueDate);
@@ -338,6 +342,17 @@ class TaskController {
           return;
         }
         updateData.dueDate = parsedDate;
+      }
+
+      // Validate dates if both are provided
+      if (updateData.startDate && updateData.dueDate) {
+        if (updateData.startDate > updateData.dueDate) {
+          res.status(400).json({ 
+            success: false, 
+            message: "Start date cannot be after due date" 
+          });
+          return;
+        }
       }
 
       const todo = await TaskService.updateTask(id, updateData);
