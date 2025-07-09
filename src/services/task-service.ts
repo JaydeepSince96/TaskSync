@@ -107,6 +107,10 @@ class TaskService {
         query.completed = true;
       } else if (status === 'Pending' || status === 'pending') {
         query.completed = false;
+      } else if (status === 'Overdue' || status === 'overdue') {
+        // Overdue tasks are not completed and have a due date in the past
+        query.completed = false;
+        query.dueDate = { $lt: new Date() };
       }
     }
 
