@@ -3,14 +3,41 @@ import { Request, Response, RequestHandler } from "express";
 import statsService from "../services/stats-service";
 
 class StatsController {
-  // Get todo statistics
+  // Get todo statistics with optional date filtering
   getTaskStats: RequestHandler = async (req, res) => {
     console.log("Stats endpoint hit");
     try {
       console.log("Fetching stats from service");
+      
+      // Extract filter parameters from query string
+      const { 
+        period, 
+        startDate, 
+        endDate, 
+        year, 
+        month, 
+        week 
+      } = req.query;
+
+      console.log("Filter parameters:", { period, startDate, endDate, year, month, week });
+
       const [labelStats, overallStats] = await Promise.all([
-        statsService.getTaskStats(),
-        statsService.getOverallStats()
+        statsService.getTaskStats({
+          period: period as string,
+          startDate: startDate as string,
+          endDate: endDate as string,
+          year: year ? parseInt(year as string) : undefined,
+          month: month ? parseInt(month as string) : undefined,
+          week: week ? parseInt(week as string) : undefined,
+        }),
+        statsService.getOverallStats({
+          period: period as string,
+          startDate: startDate as string,
+          endDate: endDate as string,
+          year: year ? parseInt(year as string) : undefined,
+          month: month ? parseInt(month as string) : undefined,
+          week: week ? parseInt(week as string) : undefined,
+        })
       ]);
       
       console.log("Stats fetched successfully");
@@ -18,7 +45,15 @@ class StatsController {
         success: true,
         data: {
           labelStats,
-          overallStats
+          overallStats,
+          filterApplied: {
+            period,
+            startDate,
+            endDate,
+            year,
+            month,
+            week
+          }
         }
       });
     } catch (error) {
