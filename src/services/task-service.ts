@@ -14,23 +14,23 @@ interface TaskFilterOptions {
 }
 
 class TaskService {
-  // Get all task
-  async getAllTask(): Promise<ITask[]> {
-    return await Task.find({}).sort({ dueDate: 1 });
+  // Get all task for a specific user
+  async getAllTask(userId: string): Promise<ITask[]> {
+    return await Task.find({ userId }).sort({ dueDate: 1 });
   }
 
-  // Get single task by ID
-  async getTaskById(id: string): Promise<ITask | null> {
+  // Get single task by ID for a specific user
+  async getTaskById(id: string, userId: string): Promise<ITask | null> {
     try {
-      return await Task.findById(id);
+      return await Task.findOne({ _id: id, userId });
     } catch (error) {
       console.error('Error fetching task by ID:', error);
       throw new Error('Invalid task ID format');
     }
   }
 
-  // Get filtered tasks
-  async getFilteredTasks(filters: TaskFilterOptions): Promise<{
+  // Get filtered tasks for a specific user
+  async getFilteredTasks(userId: string, filters: TaskFilterOptions): Promise<{
     tasks: ITask[];
     totalCount: number;
     totalPages: number;
@@ -46,8 +46,8 @@ class TaskService {
       limit = 10
     } = filters;
 
-    // Build the query object
-    const query: any = {};
+    // Build the query object - always include userId
+    const query: any = { userId };
 
     // Search by ID (exact match or partial match)
     if (searchId && searchId.trim()) {
@@ -165,14 +165,14 @@ class TaskService {
     };
   }
 
-  // Create a new task
-  async createTask(title: string, label: TaskLabel, startDate: Date, dueDate: Date): Promise<ITask> {
-    const task = new Task({ title, label, startDate, dueDate });
+  // Create a new task for a specific user
+  async createTask(userId: string, title: string, label: TaskLabel, startDate: Date, dueDate: Date): Promise<ITask> {
+    const task = new Task({ userId, title, label, startDate, dueDate });
     return await task.save();
   }
 
-  // Update a task
-  async updateTask(id: string, updateData: { title?: string; completed?: boolean; label?: TaskLabel; startDate?: Date; dueDate?: Date }): Promise<ITask | null> {
+  // Update a task for a specific user
+  async updateTask(id: string, userId: string, updateData: { title?: string; completed?: boolean; label?: TaskLabel; startDate?: Date; dueDate?: Date }): Promise<ITask | null> {
     const filteredUpdateData: any = {};
     
     if (updateData.title !== undefined) filteredUpdateData.title = updateData.title;
@@ -181,15 +181,15 @@ class TaskService {
     if (updateData.startDate !== undefined) filteredUpdateData.startDate = updateData.startDate;
     if (updateData.dueDate !== undefined) filteredUpdateData.dueDate = updateData.dueDate;
     
-    return await Task.findByIdAndUpdate(id, filteredUpdateData, { new: true });
+    return await Task.findOneAndUpdate({ _id: id, userId }, filteredUpdateData, { new: true });
   }
 
-  // Delete a task
-  async deleteTask(id: string): Promise<void> {
+  // Delete a task for a specific user
+  async deleteTask(id: string, userId: string): Promise<void> {
     // First delete all subtasks associated with this task
-    await SubtaskService.deleteSubtasksByTaskId(id);
+    await SubtaskService.deleteSubtasksByTaskId(id, userId);
     // Then delete the main task
-    await Task.findByIdAndDelete(id);
+    await Task.findOneAndDelete({ _id: id, userId });
   }
 }
 

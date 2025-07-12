@@ -1,5 +1,6 @@
 import { RequestHandler } from "express";
 import SubtaskService from "../services/subtask-service";
+import { getUserId } from "../utils/auth-types";
 
 class SubtaskController {
   // Create a new subtask
@@ -59,12 +60,14 @@ class SubtaskController {
         return;
       }
 
-      const subtask = await SubtaskService.createSubtask({
-        title: title.trim(),
-        taskId,
-        startDate: parsedStartDate,
-        endDate: parsedEndDate
-      });
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Authentication required" });
+        return;
+      }
+
+      const subtask = await SubtaskService.createSubtask(userId, taskId, title.trim());
 
       res.status(201).json({
         success: true,
@@ -83,6 +86,13 @@ class SubtaskController {
   // Get all subtasks for a task
   getSubtasksByTaskId: RequestHandler = async (req, res) => {
     try {
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Authentication required" });
+        return;
+      }
+
       const { taskId } = req.params;
 
       if (!taskId) {
@@ -93,7 +103,7 @@ class SubtaskController {
         return;
       }
 
-      const subtasks = await SubtaskService.getSubtasksByTaskId(taskId);
+      const subtasks = await SubtaskService.getSubtasksByTaskId(userId, taskId);
 
       res.status(200).json({
         success: true,
@@ -122,7 +132,14 @@ class SubtaskController {
         return;
       }
 
-      const subtask = await SubtaskService.getSubtaskById(subtaskId);
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Authentication required" });
+        return;
+      }
+
+      const subtask = await SubtaskService.getSubtaskById(userId, subtaskId);
 
       res.status(200).json({
         success: true,
@@ -172,7 +189,14 @@ class SubtaskController {
         return;
       }
 
-      const subtask = await SubtaskService.updateSubtask(subtaskId, updateData);
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Authentication required" });
+        return;
+      }
+
+      const subtask = await SubtaskService.updateSubtask(userId, subtaskId, updateData);
 
       res.status(200).json({
         success: true,
@@ -201,7 +225,14 @@ class SubtaskController {
         return;
       }
 
-      const result = await SubtaskService.deleteSubtask(subtaskId);
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Authentication required" });
+        return;
+      }
+
+      const result = await SubtaskService.deleteSubtask(userId, subtaskId);
 
       res.status(200).json({
         success: true,
@@ -230,7 +261,14 @@ class SubtaskController {
         return;
       }
 
-      const subtask = await SubtaskService.toggleSubtask(subtaskId);
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Authentication required" });
+        return;
+      }
+
+      const subtask = await SubtaskService.toggleSubtask(userId, subtaskId);
 
       res.status(200).json({
         success: true,
@@ -259,7 +297,14 @@ class SubtaskController {
         return;
       }
 
-      const stats = await SubtaskService.getSubtaskStats(taskId);
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Authentication required" });
+        return;
+      }
+
+      const stats = await SubtaskService.getSubtaskStats(userId, taskId);
 
       res.status(200).json({
         success: true,

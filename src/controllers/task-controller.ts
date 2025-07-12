@@ -2,16 +2,13 @@
 import { Request, Response, RequestHandler } from "express";
 import TaskService from "../services/task-service";
 import { TaskLabel } from "../models/task-model";
+import { getUserId } from "../utils/auth-types";
+import { parseDateFromDDMMYYYY, formatDateToDDMMYYYY, formatDateWithTime } from "../utils/date-utils";
 
 class TaskController {
-  // Helper function to format date
+  // Helper function to format date (using DD/MM/YYYY format for consistency)
   private formatDate(date: Date): string {
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear().toString().slice(-2);
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${day}-${month}-${year}, ${hours}:${minutes}`;
+    return formatDateToDDMMYYYY(date);
   }
 
   // Helper function to format todo response
@@ -20,8 +17,8 @@ class TaskController {
       ...todo.toObject(),
       startDate: this.formatDate(new Date(todo.startDate)),
       dueDate: this.formatDate(new Date(todo.dueDate)),
-      createdAt: this.formatDate(new Date(todo.createdAt)),
-      updatedAt: this.formatDate(new Date(todo.updatedAt))
+      createdAt: formatDateWithTime(new Date(todo.createdAt)),
+      updatedAt: formatDateWithTime(new Date(todo.updatedAt))
     };
   }
 
@@ -44,9 +41,23 @@ class TaskController {
   // Get all task
   GetAllTask: RequestHandler = async (req, res) => {
     try {
-      const todos = await TaskService.getAllTask();
-      if (!todos) {
-        res.status(404).json({ success: false, message: "No todos found" });
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        res.status(401).json({ 
+          success: false, 
+          message: "Authentication required" 
+        });
+        return;
+      }
+
+      const todos = await TaskService.getAllTask(userId);
+      if (!todos || todos.length === 0) {
+        res.status(200).json({ 
+          success: true, 
+          data: [],
+          message: "No tasks found" 
+        });
         return;
       }
       const formattedTodos = todos.map(todo => this.formatTaskResponse(todo));
@@ -63,13 +74,19 @@ class TaskController {
   GetTaskById: RequestHandler = async (req, res) => {
     try {
       const { id } = req.params;
+      const userId = getUserId(req);
       
       if (!id) {
         res.status(400).json({ success: false, message: "Task ID is required" });
         return;
       }
 
-      const task = await TaskService.getTaskById(id);
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Authentication required" });
+        return;
+      }
+
+      const task = await TaskService.getTaskById(id, userId);
       if (!task) {
         res.status(404).json({ success: false, message: "Task not found" });
         return;
@@ -88,6 +105,13 @@ class TaskController {
   // Get filtered tasks
   GetFilteredTasks: RequestHandler = async (req, res) => {
     try {
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Authentication required" });
+        return;
+      }
+
       const {
         searchId,
         priority,
@@ -108,7 +132,7 @@ class TaskController {
         limit: parseInt(limit as string, 10)
       };
 
-      const result = await TaskService.getFilteredTasks(filters);
+      const result = await TaskService.getFilteredTasks(userId, filters);
       
       const formattedTasks = result.tasks.map(task => this.formatTaskResponse(task));
       
@@ -136,6 +160,13 @@ class TaskController {
   // Create a new task
   CreateNewTask: RequestHandler = async (req, res) => {
     try {
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Authentication required" });
+        return;
+      }
+
       const { title, label, startDate, dueDate } = req.body;
       
       if (!dueDate || !startDate) {
@@ -146,83 +177,62 @@ class TaskController {
         return;
       }
 
-      // Parse start date
+      // Parse start date (beginning of day)
       let parsedStartDate: Date;
       if (typeof startDate === 'string') {
-        // Try parsing as dd/mm/yyyy format first
-        if (startDate.includes('/')) {
-          const [day, month, year] = startDate.split('/');
-          if (day && month && year) {
-            // Create date at noon to avoid timezone issues
-            parsedStartDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
-          } else {
-            parsedStartDate = new Date(NaN); // Invalid date
-          }
-        } else if (startDate.includes('-')) {
-          // Handle YYYY-MM-DD format
-          const [year, month, day] = startDate.split('-');
-          if (year && month && day) {
-            parsedStartDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
-          } else {
-            parsedStartDate = new Date(NaN);
-          }
-        } else {
-          // Try parsing as ISO string
-          parsedStartDate = new Date(startDate);
+        try {
+          parsedStartDate = parseDateFromDDMMYYYY(startDate, false);
+        } catch (error) {
+          res.status(400).json({ 
+            success: false, 
+            message: "Invalid start date format. Use DD/MM/YYYY" 
+          });
+          return;
         }
       } else {
         parsedStartDate = new Date(startDate);
+        parsedStartDate.setHours(0, 0, 0, 0);
       }
 
-      if (isNaN(parsedStartDate.getTime())) {
-        res.status(400).json({ 
-          success: false, 
-          message: "Invalid start date format. Please use dd/mm/yyyy format (e.g., 25/03/2024)" 
-        });
-        return;
-      }
-
-      // Parse due date
+      // Parse due date (end of day)
       let parsedDueDate: Date;
       if (typeof dueDate === 'string') {
-        // Try parsing as dd/mm/yyyy format first
-        if (dueDate.includes('/')) {
-          const [day, month, year] = dueDate.split('/');
-          if (day && month && year) {
-            // Create date at noon to avoid timezone issues
-            parsedDueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
-          } else {
-            parsedDueDate = new Date(NaN); // Invalid date
-          }
-        } else if (dueDate.includes('-')) {
-          // Handle YYYY-MM-DD format
-          const [year, month, day] = dueDate.split('-');
-          if (year && month && day) {
-            parsedDueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
-          } else {
-            parsedDueDate = new Date(NaN);
-          }
-        } else {
-          // Try parsing as ISO string
-          parsedDueDate = new Date(dueDate);
+        try {
+          parsedDueDate = parseDateFromDDMMYYYY(dueDate, true);
+        } catch (error) {
+          res.status(400).json({ 
+            success: false, 
+            message: "Invalid due date format. Use DD/MM/YYYY" 
+          });
+          return;
         }
       } else {
         parsedDueDate = new Date(dueDate);
+        parsedDueDate.setHours(23, 59, 59, 999);
+      }
+
+      // Validate parsed dates
+      if (isNaN(parsedStartDate.getTime())) {
+        res.status(400).json({ 
+          success: false, 
+          message: "Invalid start date" 
+        });
+        return;
       }
 
       if (isNaN(parsedDueDate.getTime())) {
         res.status(400).json({ 
           success: false, 
-          message: "Invalid due date format. Please use dd/mm/yyyy format (e.g., 25/03/2024)" 
+          message: "Invalid due date" 
         });
         return;
       }
 
-      // Validate that start date is not after due date (allow same date)
+      // Check if due date is before start date (allow same day)
       if (parsedStartDate > parsedDueDate) {
         res.status(400).json({ 
           success: false, 
-          message: "Start date cannot be after due date" 
+          message: "Due date cannot be before start date" 
         });
         return;
       }
@@ -230,18 +240,22 @@ class TaskController {
       if (!Object.values(TaskLabel).includes(label)) {
         res.status(400).json({ 
           success: false, 
-          message: "Invalid label. Must be one of: low priority, medium priority, high priority, priority" 
+          message: "Invalid label. Must be one of: low priority, medium priority, high priority" 
         });
         return;
       }
 
-      const task = await TaskService.createTask(title, label, parsedStartDate, parsedDueDate);
-      const formattedTodo = this.formatTaskResponse(task);
-      res.status(201).json({ success: true, data: formattedTodo });
+      const task = await TaskService.createTask(userId, title, label, parsedStartDate, parsedDueDate);
+
+      res.status(201).json({
+        success: true,
+        message: "Task created successfully",
+        data: this.formatTaskResponse(task),
+      });
     } catch (error) {
       res.status(500).json({
         success: false,
-        message: `Error creating todo: ${error}`,
+        message: `Error creating task: ${error}`,
       });
     }
   };
@@ -249,13 +263,20 @@ class TaskController {
   // Update a task
   UpdateTask: RequestHandler = async (req, res) => {
     try {
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Authentication required" });
+        return;
+      }
+
       const { id } = req.params;
       const { title, completed, label, startDate, dueDate } = req.body;
 
       if (label && !Object.values(TaskLabel).includes(label)) {
         res.status(400).json({ 
           success: false, 
-          message: "Invalid label. Must be one of: High Priority, Medium Priority, Low Priority" 
+          message: "Invalid label. Must be one of: low priority, medium priority, high priority" 
         });
         return;
       }
@@ -266,98 +287,76 @@ class TaskController {
       if (completed !== undefined) updateData.completed = completed;
       if (label !== undefined) updateData.label = label;
 
-      // Parse start date if provided
+      // Parse start date if provided (beginning of day)
       if (startDate) {
         let parsedStartDate: Date;
         if (typeof startDate === 'string') {
-          // Try parsing as dd/mm/yyyy format first
-          if (startDate.includes('/')) {
-            const [day, month, year] = startDate.split('/');
-            if (day && month && year) {
-              // Create date at noon to avoid timezone issues
-              parsedStartDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
-            } else {
-              parsedStartDate = new Date(NaN); // Invalid date
-            }
-          } else if (startDate.includes('-')) {
-            // Handle YYYY-MM-DD format
-            const [year, month, day] = startDate.split('-');
-            if (year && month && day) {
-              parsedStartDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
-            } else {
-              parsedStartDate = new Date(NaN);
-            }
-          } else {
-            // Try parsing as ISO string
-            parsedStartDate = new Date(startDate);
+          try {
+            parsedStartDate = parseDateFromDDMMYYYY(startDate, false);
+          } catch (error) {
+            res.status(400).json({ 
+              success: false, 
+              message: "Invalid start date format. Use DD/MM/YYYY" 
+            });
+            return;
           }
         } else {
           parsedStartDate = new Date(startDate);
+          parsedStartDate.setHours(0, 0, 0, 0);
         }
 
         if (isNaN(parsedStartDate.getTime())) {
           res.status(400).json({ 
             success: false, 
-            message: "Invalid start date format. Please use dd/mm/yyyy format (e.g., 25/03/2024)" 
+            message: "Invalid start date" 
           });
           return;
         }
         updateData.startDate = parsedStartDate;
       }
 
-      // Parse due date if provided
+      // Parse due date if provided (end of day)
       if (dueDate) {
         let parsedDate: Date;
         if (typeof dueDate === 'string') {
-          // Try parsing as dd/mm/yyyy format first
-          if (dueDate.includes('/')) {
-            const [day, month, year] = dueDate.split('/');
-            if (day && month && year) {
-              // Create date at noon to avoid timezone issues
-              parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
-            } else {
-              parsedDate = new Date(NaN); // Invalid date
-            }
-          } else if (dueDate.includes('-')) {
-            // Handle YYYY-MM-DD format
-            const [year, month, day] = dueDate.split('-');
-            if (year && month && day) {
-              parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
-            } else {
-              parsedDate = new Date(NaN);
-            }
-          } else {
-            // Try parsing as ISO string
-            parsedDate = new Date(dueDate);
+          try {
+            parsedDate = parseDateFromDDMMYYYY(dueDate, true);
+          } catch (error) {
+            res.status(400).json({ 
+              success: false, 
+              message: "Invalid due date format. Use DD/MM/YYYY" 
+            });
+            return;
           }
         } else {
           parsedDate = new Date(dueDate);
+          parsedDate.setHours(23, 59, 59, 999);
         }
 
         if (isNaN(parsedDate.getTime())) {
           res.status(400).json({ 
             success: false, 
-            message: "Invalid due date format. Please use dd/mm/yyyy format (e.g., 25/03/2024)" 
+            message: "Invalid due date" 
           });
           return;
         }
         updateData.dueDate = parsedDate;
       }
 
-      // Validate dates if both are provided
+      // Validate dates if both are provided (allow same day)
       if (updateData.startDate && updateData.dueDate) {
         if (updateData.startDate > updateData.dueDate) {
           res.status(400).json({ 
             success: false, 
-            message: "Start date cannot be after due date" 
+            message: "Due date cannot be before start date" 
           });
           return;
         }
       }
 
-      const todo = await TaskService.updateTask(id, updateData);
+      const todo = await TaskService.updateTask(id, userId, updateData);
       if (!todo) {
-        res.status(404).json({ success: false, message: "Todo not found" });
+        res.status(404).json({ success: false, message: "Task not found" });
         return;
       }
       const formattedTodo = this.formatTaskResponse(todo);
@@ -365,7 +364,7 @@ class TaskController {
     } catch (error) {
       res.status(500).json({
         success: false,
-        message: `Error updating todo: ${error}`,
+        message: `Error updating task: ${error}`,
       });
     }
   };
@@ -373,13 +372,20 @@ class TaskController {
   // Delete a task
   DeleteTask: RequestHandler = async (req, res) => {
     try {
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Authentication required" });
+        return;
+      }
+
       const { id } = req.params;
-      await TaskService.deleteTask(id);
-      res.status(204).json({ success: true, message: "Todo deleted successfully" });
+      await TaskService.deleteTask(id, userId);
+      res.status(204).json({ success: true, message: "Task deleted successfully" });
     } catch (error) {
       res.status(500).json({
         success: false,
-        message: `Error deleting todo: ${error}`,
+        message: `Error deleting task: ${error}`,
       });
     }
   };

@@ -1,7 +1,11 @@
 import { Router } from "express";
 import SubtaskController from "../controllers/subtask-controller";
+import { authenticateToken } from "../middleware/auth-middleware";
 
 const router = Router();
+
+// Apply authentication to all subtask routes
+router.use(authenticateToken);
 
 // Subtask routes for a specific task
 router.post("/tasks/:taskId/subtasks", SubtaskController.createSubtask);

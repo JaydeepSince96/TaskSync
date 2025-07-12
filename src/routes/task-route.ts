@@ -2,26 +2,32 @@
 import express from "express";
 import TaskController from "../controllers/task-controller";
 import statsRoute from "./stats-route";
+import { authenticateToken } from "../middleware/auth-middleware";
+import {
+  createTaskValidation,
+  updateTaskValidation,
+  mongoIdValidation,
+  paginationValidation,
+  handleValidationErrors
+} from "../middleware/validation-middleware";
 
 const router = express.Router();
 
-// Todo routes
+// Public routes (no authentication required)
 router.get("/labels", TaskController.GetLabelOptions);
-router.get("/filtered", TaskController.GetFilteredTasks); // Add this before the general GET route
+
+// Protected routes (authentication required)
+router.use(authenticateToken); // Apply authentication to all routes below
+
+router.get("/filtered", paginationValidation, handleValidationErrors, TaskController.GetFilteredTasks);
 
 // Stats routes - MUST come before /:id route to avoid conflicts
 router.use("/stats", statsRoute);
 
-router.get("/:id", TaskController.GetTaskById); // Get single task by ID
+router.get("/:id", mongoIdValidation, handleValidationErrors, TaskController.GetTaskById);
 router.get("/", TaskController.GetAllTask);
-router.post("/", TaskController.CreateNewTask);
-router.put("/:id", TaskController.UpdateTask);
-router.delete("/:id", TaskController.DeleteTask);
-
-
-//router.use() is a middleware function that is used to mount a complete router or middleware at a specific path. It's like saying "take all the routes defined in this router and mount them under this path". When you use router.use("/stats", statsRoute), it means:
-// All routes defined in statsRoute will be prefixed with "/stats"
-// It can handle multiple HTTP methods (GET, POST, PUT, DELETE, etc.)
-// It's more flexible as it can handle multiple routes from the same router
+router.post("/", createTaskValidation, handleValidationErrors, TaskController.CreateNewTask);
+router.put("/:id", updateTaskValidation, handleValidationErrors, TaskController.UpdateTask);
+router.delete("/:id", mongoIdValidation, handleValidationErrors, TaskController.DeleteTask);
 
 export default router;  
