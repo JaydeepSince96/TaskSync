@@ -1,6 +1,7 @@
 // src/services/StatsService.ts
 import { TaskLabel } from "../models/task-model";
 import Task from "../models/task-model";
+import { Types } from "mongoose";
 
 interface TaskStats {
   label: string;
@@ -37,10 +38,16 @@ class StatsService {
   }
 
   // Helper method to build date match condition
-  private buildDateMatchCondition(options: DateFilterOptions = {}): any {
+  private buildDateMatchCondition(userId: string, options: DateFilterOptions = {}): any {
     const { period, startDate, endDate, year, month, week } = options;
     const now = new Date();
-    let matchCondition: any = {};
+    let matchCondition: any = {
+      userId: new Types.ObjectId(userId) // Convert string to ObjectId for proper matching
+    };
+
+    console.log('🔍 buildDateMatchCondition - userId:', userId, 'type:', typeof userId);
+    console.log('🔍 buildDateMatchCondition - ObjectId userId:', new Types.ObjectId(userId));
+    console.log('🔍 buildDateMatchCondition - initial matchCondition:', matchCondition);
 
     if (period === 'custom' && startDate && endDate) {
       // Custom date range
@@ -92,21 +99,22 @@ class StatsService {
         $lte: endOfYear
       };
     }
-    // If no period specified, return all tasks (no date filter)
+    // If no period specified, return all tasks for this user (with user filter)
 
     return matchCondition;
   }
 
   // Get task statistics by label with date filtering
-  async getTaskStats(filterOptions: DateFilterOptions = {}): Promise<TaskStats[]> {
-    const matchCondition = this.buildDateMatchCondition(filterOptions);
+  async getTaskStats(userId: string, filterOptions: DateFilterOptions = {}): Promise<TaskStats[]> {
+    console.log('🔍 getTaskStats - userId:', userId, 'type:', typeof userId);
+    console.log('🔍 getTaskStats - filterOptions:', filterOptions);
     
-    const pipeline: any[] = [];
+    const matchCondition = this.buildDateMatchCondition(userId, filterOptions);
+    console.log('🔍 getTaskStats - matchCondition:', JSON.stringify(matchCondition, null, 2));
     
-    // Add match stage only if there are conditions
-    if (Object.keys(matchCondition).length > 0) {
-      pipeline.push({ $match: matchCondition });
-    }
+    const pipeline: any[] = [
+      { $match: matchCondition } // Always include match with userId
+    ];
     
     pipeline.push(
       {
@@ -154,6 +162,8 @@ class StatsService {
     );
 
     const stats = await Task.aggregate(pipeline);
+    console.log('🔍 getTaskStats - pipeline result:', JSON.stringify(stats, null, 2));
+    console.log('🔍 getTaskStats - raw task count for user:', await Task.countDocuments({ userId: new Types.ObjectId(userId) }));
 
     // Add labels with zero todos
     const allLabels = Object.values(TaskLabel);
@@ -177,15 +187,15 @@ class StatsService {
   }
 
   // Get overall statistics with date filtering
-  async getOverallStats(filterOptions: DateFilterOptions = {}): Promise<OverallStats> {
-    const matchCondition = this.buildDateMatchCondition(filterOptions);
+  async getOverallStats(userId: string, filterOptions: DateFilterOptions = {}): Promise<OverallStats> {
+    console.log('🔍 getOverallStats - userId:', userId, 'type:', typeof userId);
     
-    const pipeline: any[] = [];
+    const matchCondition = this.buildDateMatchCondition(userId, filterOptions);
+    console.log('🔍 getOverallStats - matchCondition:', JSON.stringify(matchCondition, null, 2));
     
-    // Add match stage only if there are conditions
-    if (Object.keys(matchCondition).length > 0) {
-      pipeline.push({ $match: matchCondition });
-    }
+    const pipeline: any[] = [
+      { $match: matchCondition } // Always include match with userId
+    ];
     
     pipeline.push(
       {
@@ -232,6 +242,8 @@ class StatsService {
     );
 
     const stats = await Task.aggregate(pipeline);
+    console.log('🔍 getOverallStats - pipeline result:', JSON.stringify(stats, null, 2));
+    console.log('🔍 getOverallStats - raw task count for user:', await Task.countDocuments({ userId: new Types.ObjectId(userId) }));
 
     return stats[0] || {
       totalTasks: 0,
