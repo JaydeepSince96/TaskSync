@@ -12,7 +12,14 @@ interface SubtaskStats {
 
 class SubtaskService {
   // Create a new subtask for a specific user
-  async createSubtask(userId: string, taskId: string, title: string, description?: string): Promise<ISubtask> {
+  async createSubtask(
+    userId: string, 
+    taskId: string, 
+    title: string, 
+    description?: string,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<ISubtask> {
     // Verify the task exists and belongs to the user
     const task = await Task.findOne({ _id: taskId, userId });
     if (!task) {
@@ -24,7 +31,9 @@ class SubtaskService {
       taskId,
       title,
       description,
-      completed: false
+      completed: false,
+      startDate,
+      endDate
     });
 
     return await subtask.save();

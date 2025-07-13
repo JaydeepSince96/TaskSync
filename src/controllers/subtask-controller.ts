@@ -5,6 +5,8 @@ import { getUserId } from "../utils/auth-types";
 class SubtaskController {
   // Create a new subtask
   createSubtask: RequestHandler = async (req, res) => {
+    console.log('🔥 Backend: createSubtask called with body:', req.body);
+    console.log('🔥 Backend: taskId from params:', req.params.taskId);
     try {
       const { title, startDate, endDate } = req.body;
       const { taskId } = req.params;
@@ -67,7 +69,14 @@ class SubtaskController {
         return;
       }
 
-      const subtask = await SubtaskService.createSubtask(userId, taskId, title.trim());
+      const subtask = await SubtaskService.createSubtask(
+        userId, 
+        taskId, 
+        title.trim(), 
+        undefined, // description
+        parsedStartDate,
+        parsedEndDate
+      );
 
       res.status(201).json({
         success: true,
