@@ -17,6 +17,17 @@ export interface IUser extends Document {
     weeklyReports: boolean;
     theme: 'light' | 'dark' | 'system';
   };
+  // Detailed notification preferences
+  notificationPreferences?: {
+    whatsapp: boolean;
+    email: boolean;
+    push: boolean;
+    taskReminders: boolean;
+    weeklyReports: boolean;
+    customMessages: boolean;
+  };
+  // Contact information for notifications
+  phoneNumber?: string;
   createdAt: Date;
   updatedAt: Date;
   lastLogin?: Date;
@@ -89,6 +100,39 @@ const UserSchema = new Schema<IUser>(
         enum: ['light', 'dark', 'system'],
         default: 'system'
       }
+    },
+    // Detailed notification preferences
+    notificationPreferences: {
+      whatsapp: {
+        type: Boolean,
+        default: true
+      },
+      email: {
+        type: Boolean,
+        default: true
+      },
+      push: {
+        type: Boolean,
+        default: true
+      },
+      taskReminders: {
+        type: Boolean,
+        default: true
+      },
+      weeklyReports: {
+        type: Boolean,
+        default: true
+      },
+      customMessages: {
+        type: Boolean,
+        default: true
+      }
+    },
+    // Contact information for notifications
+    phoneNumber: {
+      type: String,
+      trim: true,
+      sparse: true // Allows multiple null values
     },
     lastLogin: {
       type: Date

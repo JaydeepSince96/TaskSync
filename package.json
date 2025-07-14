@@ -16,6 +16,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.0.0",
+    "@types/nodemailer": "^6.4.17",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.16",
     "bcryptjs": "^3.0.2",
@@ -26,8 +27,11 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.12.2",
     "multer": "^2.0.1",
+    "nodemailer": "^7.0.5",
+    "onesignal-node": "^3.4.0",
     "passport": "^0.7.0",
-    "passport-google-oauth20": "^2.0.0"
+    "passport-google-oauth20": "^2.0.0",
+    "twilio": "^5.7.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

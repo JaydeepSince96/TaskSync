@@ -9,6 +9,7 @@ import taskRoute from "./routes/task-route";
 import subtaskRoute from "./routes/subtask-route";
 import authRoute from "./routes/auth-route";
 import statsRoute from "./routes/stats-route";
+import notificationRoute from "./routes/notification-route";
 
 const app = express();
 
@@ -70,6 +71,7 @@ app.use("/api/auth", authRoute);
 app.use("/api/task", taskRoute);
 app.use("/api", subtaskRoute);
 app.use("/api", statsRoute);
+app.use("/api/notifications", notificationRoute);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
