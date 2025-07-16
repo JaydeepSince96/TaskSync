@@ -1,6 +1,7 @@
 // src/services/TodoService.ts
 import { ITask, TaskLabel } from "../models/task-model";
 import Task from "../models/task-model";
+import { User } from "../models/user-model";
 import SubtaskService from "./subtask-service";
 
 interface TaskFilterOptions {
@@ -16,13 +17,16 @@ interface TaskFilterOptions {
 class TaskService {
   // Get all task for a specific user
   async getAllTask(userId: string): Promise<ITask[]> {
-    return await Task.find({ userId }).sort({ dueDate: 1 });
+    return await Task.find({ userId })
+      .populate('assignedTo', 'name email profilePicture')
+      .sort({ dueDate: 1 });
   }
 
   // Get single task by ID for a specific user
   async getTaskById(id: string, userId: string): Promise<ITask | null> {
     try {
-      return await Task.findOne({ _id: id, userId });
+      return await Task.findOne({ _id: id, userId })
+        .populate('assignedTo', 'name email profilePicture');
     } catch (error) {
       console.error('Error fetching task by ID:', error);
       throw new Error('Invalid task ID format');
@@ -149,6 +153,7 @@ class TaskService {
     // Execute queries
     const [tasks, totalCount] = await Promise.all([
       Task.find(query)
+        .populate('assignedTo', 'name email profilePicture')
         .sort({ dueDate: 1 })
         .skip(skip)
         .limit(limit),
@@ -166,9 +171,38 @@ class TaskService {
   }
 
   // Create a new task for a specific user
-  async createTask(userId: string, title: string, label: TaskLabel, startDate: Date, dueDate: Date): Promise<ITask> {
-    const task = new Task({ userId, title, label, startDate, dueDate });
-    return await task.save();
+  async createTask(userId: string, title: string, label: TaskLabel, startDate: Date, dueDate: Date, assignedTo?: string[]): Promise<ITask> {
+    const taskData: any = { userId, title, label, startDate, dueDate };
+    
+    // If assignedTo is provided, look up the users by email and get their ObjectIds
+    if (assignedTo && assignedTo.length > 0) {
+      try {
+        const assignedUserIds = [];
+        
+        for (const email of assignedTo) {
+          if (email && email.trim()) {
+            // Find user by email
+            const assignedUser = await User.findOne({ email: email.trim() });
+            if (assignedUser) {
+              assignedUserIds.push(assignedUser._id);
+            } else {
+              // If user not found, throw an error to ensure data integrity
+              throw new Error(`User with email "${email.trim()}" not found`);
+            }
+          }
+        }
+        
+        if (assignedUserIds.length > 0) {
+          taskData.assignedTo = assignedUserIds;
+        }
+      } catch (error) {
+        // Re-throw the error to be handled by the controller
+        throw error;
+      }
+    }
+    
+    const task = new Task(taskData);
+    return await (await task.save()).populate('assignedTo', 'name email profilePicture');
   }
 
   // Update a task for a specific user

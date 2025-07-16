@@ -15,7 +15,8 @@ export interface ITask extends Document {
   label: TaskLabel;
   startDate: Date;
   dueDate: Date;
-  userId: Types.ObjectId; // Reference to User
+  userId: Types.ObjectId; // Reference to User (task creator)
+  assignedTo?: Types.ObjectId[]; // Array of References to Users (assigned users) - UPDATED FOR MULTIPLE ASSIGNMENTS
 }
 
 const TaskSchema = new Schema<ITask>(
@@ -35,6 +36,12 @@ const TaskSchema = new Schema<ITask>(
       required: true,
       index: true // Index for better query performance
     },
+    assignedTo: [{ 
+      type: Schema.Types.ObjectId, 
+      ref: "User", 
+      required: false,
+      index: true // Index for better query performance
+    }],
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
   },
@@ -45,5 +52,6 @@ const TaskSchema = new Schema<ITask>(
 TaskSchema.index({ userId: 1, createdAt: -1 });
 TaskSchema.index({ userId: 1, completed: 1 });
 TaskSchema.index({ userId: 1, label: 1 });
+TaskSchema.index({ assignedTo: 1, completed: 1 }); // Index for assigned tasks queries
 
 export default model<ITask>("Task", TaskSchema);

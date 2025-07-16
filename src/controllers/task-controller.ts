@@ -167,7 +167,7 @@ class TaskController {
         return;
       }
 
-      const { title, label, startDate, dueDate } = req.body;
+      const { title, label, startDate, dueDate, assignedTo } = req.body;
       
       if (!dueDate || !startDate) {
         res.status(400).json({ 
@@ -245,7 +245,7 @@ class TaskController {
         return;
       }
 
-      const task = await TaskService.createTask(userId, title, label, parsedStartDate, parsedDueDate);
+      const task = await TaskService.createTask(userId, title, label, parsedStartDate, parsedDueDate, assignedTo);
 
       res.status(201).json({
         success: true,
@@ -253,9 +253,30 @@ class TaskController {
         data: this.formatTaskResponse(task),
       });
     } catch (error) {
+      console.error("Error creating task:", error);
+      
+      // Handle specific assignment-related errors
+      if (error instanceof Error) {
+        if (error.message.includes("not found")) {
+          res.status(404).json({
+            success: false,
+            message: error.message,
+          });
+          return;
+        }
+        
+        if (error.message.includes("assignedTo")) {
+          res.status(400).json({
+            success: false,
+            message: "Invalid assignment. Please check the assigned user email.",
+          });
+          return;
+        }
+      }
+      
       res.status(500).json({
         success: false,
-        message: `Error creating task: ${error}`,
+        message: `Error creating task: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }
   };
