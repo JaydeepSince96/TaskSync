@@ -1,12 +1,25 @@
 // src/routes/notification-route.ts
 import express from 'express';
 import NotificationController from '../controllers/notification-controller';
+import { authenticateToken } from '../middleware/auth-middleware';
 
 const router = express.Router();
 const notificationController = new NotificationController();
 
+// Simple test endpoint (no auth)
+router.get('/test-public', (req, res) => {
+  res.json({
+    success: true,
+    message: "Public endpoint working",
+    timestamp: new Date().toISOString()
+  });
+});
+
 // GET /api/notifications/health - Public health check (no auth required)
 router.get('/health', notificationController.healthCheck);
+
+// Apply authentication to all routes below this point
+router.use(authenticateToken);
 
 // GET /api/notifications/status - Get status of all notification services
 router.get('/status', notificationController.getServicesStatus);

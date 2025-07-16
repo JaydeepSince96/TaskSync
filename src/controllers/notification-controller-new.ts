@@ -1,30 +1,30 @@
 // src/controllers/notification-controller.ts
-import { Request, Response, RequestHandler } from "express";
-import notificationManager from "../services/notification-manager";
-import whatsappService from "../services/whatsapp-service";
-import emailService from "../services/email-service";
-import pushNotificationService from "../services/push-notification-service";
-import TaskModel from "../models/task-model";
-import { User } from "../models/user-model";
-import { getUserId } from "../utils/auth-types";
+import { Request, Response, RequestHandler } from 'express';
+import notificationManager from '../services/notification-manager';
+import whatsappService from '../services/whatsapp-service';
+import emailService from '../services/email-service';
+import pushNotificationService from '../services/push-notification-service';
+import TaskModel from '../models/task-model';
+import { User } from '../models/user-model';
+import { getUserId } from '../utils/auth-types';
 
 class NotificationController {
   // GET /api/notifications/status - Get status of all notification services
   getServicesStatus: RequestHandler = async (req, res) => {
     try {
       const status = notificationManager.getServicesStatus();
-
+      
       res.json({
         success: true,
-        message: "Notification services status retrieved successfully",
-        data: status,
+        message: 'Notification services status retrieved successfully',
+        data: status
       });
     } catch (error) {
-      console.error("Error getting notification status:", error);
+      console.error('Error getting notification status:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to get notification status",
-        error: error instanceof Error ? error.message : "Unknown error",
+        message: 'Failed to get notification status',
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   };
@@ -34,11 +34,11 @@ class NotificationController {
     try {
       const userId = getUserId(req);
       const user = await User.findById(userId);
-
+      
       if (!user) {
         res.status(404).json({
           success: false,
-          message: "User not found",
+          message: 'User not found'
         });
         return;
       }
@@ -48,22 +48,22 @@ class NotificationController {
       const testData = {
         email: user.email,
         phoneNumber: phoneNumber || user.phoneNumber,
-        deviceTokens: deviceTokens || [],
+        deviceTokens: deviceTokens || []
       };
 
       const results = await notificationManager.testAllServices(testData);
 
       res.json({
         success: true,
-        message: "Notification services tested",
-        data: results,
+        message: 'Notification services tested',
+        data: results
       });
     } catch (error) {
-      console.error("Error testing notifications:", error);
+      console.error('Error testing notifications:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to test notifications",
-        error: error instanceof Error ? error.message : "Unknown error",
+        message: 'Failed to test notifications',
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   };
@@ -72,11 +72,11 @@ class NotificationController {
   testWhatsApp: RequestHandler = async (req, res) => {
     try {
       const { phoneNumber } = req.body;
-
+      
       if (!phoneNumber) {
         res.status(400).json({
           success: false,
-          message: "Phone number is required",
+          message: 'Phone number is required'
         });
         return;
       }
@@ -85,17 +85,15 @@ class NotificationController {
 
       res.json({
         success: result,
-        message: result
-          ? "WhatsApp test message sent successfully"
-          : "Failed to send WhatsApp test message",
-        data: { sent: result },
+        message: result ? 'WhatsApp test message sent successfully' : 'Failed to send WhatsApp test message',
+        data: { sent: result }
       });
     } catch (error) {
-      console.error("Error testing WhatsApp:", error);
+      console.error('Error testing WhatsApp:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to test WhatsApp service",
-        error: error instanceof Error ? error.message : "Unknown error",
+        message: 'Failed to test WhatsApp service',
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   };
@@ -105,11 +103,11 @@ class NotificationController {
     try {
       const userId = getUserId(req);
       const user = await User.findById(userId);
-
+      
       if (!user) {
         res.status(404).json({
           success: false,
-          message: "User not found",
+          message: 'User not found'
         });
         return;
       }
@@ -121,17 +119,15 @@ class NotificationController {
 
       res.json({
         success: result,
-        message: result
-          ? "Test email sent successfully"
-          : "Failed to send test email",
-        data: { sent: result, email: targetEmail },
+        message: result ? 'Test email sent successfully' : 'Failed to send test email',
+        data: { sent: result, email: targetEmail }
       });
     } catch (error) {
-      console.error("Error testing email:", error);
+      console.error('Error testing email:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to test email service",
-        error: error instanceof Error ? error.message : "Unknown error",
+        message: 'Failed to test email service',
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   };
@@ -140,36 +136,28 @@ class NotificationController {
   testPushNotifications: RequestHandler = async (req, res) => {
     try {
       const { deviceTokens } = req.body;
-
-      if (
-        !deviceTokens ||
-        !Array.isArray(deviceTokens) ||
-        deviceTokens.length === 0
-      ) {
+      
+      if (!deviceTokens || !Array.isArray(deviceTokens) || deviceTokens.length === 0) {
         res.status(400).json({
           success: false,
-          message: "Device tokens array is required",
+          message: 'Device tokens array is required'
         });
         return;
       }
 
-      const result = await pushNotificationService.sendTestNotification(
-        deviceTokens
-      );
+      const result = await pushNotificationService.sendTestNotification(deviceTokens);
 
       res.json({
         success: result,
-        message: result
-          ? "Push test notification sent successfully"
-          : "Failed to send push test notification",
-        data: { sent: result, deviceCount: deviceTokens.length },
+        message: result ? 'Push test notification sent successfully' : 'Failed to send push test notification',
+        data: { sent: result, deviceCount: deviceTokens.length }
       });
     } catch (error) {
-      console.error("Error testing push notifications:", error);
+      console.error('Error testing push notifications:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to test push notification service",
-        error: error instanceof Error ? error.message : "Unknown error",
+        message: 'Failed to test push notification service',
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   };
@@ -183,7 +171,7 @@ class NotificationController {
       if (!userId) {
         res.status(401).json({
           success: false,
-          message: "Authentication required",
+          message: 'Authentication required'
         });
         return;
       }
@@ -194,7 +182,7 @@ class NotificationController {
       if (!user) {
         res.status(404).json({
           success: false,
-          message: "User not found",
+          message: 'User not found'
         });
         return;
       }
@@ -202,7 +190,7 @@ class NotificationController {
       if (!task) {
         res.status(404).json({
           success: false,
-          message: "Task not found or does not belong to user",
+          message: 'Task not found or does not belong to user'
         });
         return;
       }
@@ -210,7 +198,7 @@ class NotificationController {
       if (task.completed) {
         res.status(400).json({
           success: false,
-          message: "Cannot send reminder for completed task",
+          message: 'Cannot send reminder for completed task'
         });
         return;
       }
@@ -218,34 +206,30 @@ class NotificationController {
       // Calculate days until due
       const now = new Date();
       const dueDate = new Date(task.dueDate);
-      const daysUntilDue = Math.ceil(
-        (dueDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)
-      );
+      const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
 
       const result = await notificationManager.sendTaskReminder({
         task,
         user,
-        daysUntilDue,
+        daysUntilDue
       });
 
       res.json({
         success: result.success,
-        message: result.success
-          ? "Task reminder sent successfully"
-          : "Failed to send task reminder",
+        message: result.success ? 'Task reminder sent successfully' : 'Failed to send task reminder',
         data: {
           taskTitle: task.title,
           daysUntilDue,
           sentVia: result.sentVia,
-          errors: result.errors,
-        },
+          errors: result.errors
+        }
       });
     } catch (error) {
-      console.error("Error sending task reminder:", error);
+      console.error('Error sending task reminder:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to send task reminder",
-        error: error instanceof Error ? error.message : "Unknown error",
+        message: 'Failed to send task reminder',
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   };
@@ -254,11 +238,11 @@ class NotificationController {
   sendWeeklyReport: RequestHandler = async (req, res) => {
     try {
       const userId = getUserId(req);
-
+      
       if (!userId) {
         res.status(401).json({
           success: false,
-          message: "Authentication required",
+          message: 'Authentication required'
         });
         return;
       }
@@ -268,7 +252,7 @@ class NotificationController {
       if (!user) {
         res.status(404).json({
           success: false,
-          message: "User not found",
+          message: 'User not found'
         });
         return;
       }
@@ -281,21 +265,19 @@ class NotificationController {
       // Get user's tasks for the week
       const weekTasks = await TaskModel.find({
         userId: user._id,
-        createdAt: { $gte: weekStart, $lte: now },
+        createdAt: { $gte: weekStart, $lte: now }
       });
 
-      const completedTasks = weekTasks.filter(
-        (task: any) => task.completed
-      ).length;
-      const overdueTasks = weekTasks.filter(
-        (task: any) => !task.completed && new Date(task.dueDate) < now
+      const completedTasks = weekTasks.filter((task: any) => task.completed).length;
+      const overdueTasks = weekTasks.filter((task: any) => 
+        !task.completed && new Date(task.dueDate) < now
       ).length;
 
       const stats = {
         totalTasks: weekTasks.length,
         completedTasks,
         overdueTasks,
-        pendingTasks: weekTasks.length - completedTasks - overdueTasks,
+        pendingTasks: weekTasks.length - completedTasks - overdueTasks
       };
 
       // Generate insights
@@ -307,29 +289,27 @@ class NotificationController {
         period: {
           startDate: weekStart,
           endDate: now,
-          weekNumber,
+          weekNumber
         },
-        insights,
+        insights
       });
 
       res.json({
         success: result.success,
-        message: result.success
-          ? "Weekly report sent successfully"
-          : "Failed to send weekly report",
+        message: result.success ? 'Weekly report sent successfully' : 'Failed to send weekly report',
         data: {
           weekNumber,
           stats,
           sentVia: result.sentVia,
-          errors: result.errors,
-        },
+          errors: result.errors
+        }
       });
     } catch (error) {
-      console.error("Error sending weekly report:", error);
+      console.error('Error sending weekly report:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to send weekly report",
-        error: error instanceof Error ? error.message : "Unknown error",
+        message: 'Failed to send weekly report',
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   };
@@ -343,7 +323,7 @@ class NotificationController {
       if (!userId) {
         res.status(401).json({
           success: false,
-          message: "Authentication required",
+          message: 'Authentication required'
         });
         return;
       }
@@ -351,7 +331,7 @@ class NotificationController {
       if (!title || !message) {
         res.status(400).json({
           success: false,
-          message: "Title and message are required",
+          message: 'Title and message are required'
         });
         return;
       }
@@ -360,26 +340,24 @@ class NotificationController {
         userId,
         title,
         message,
-        channels || ["whatsapp", "email", "push"]
+        channels || ['whatsapp', 'email', 'push']
       );
 
       res.json({
         success: result.success,
-        message: result.success
-          ? "Custom notification sent successfully"
-          : "Failed to send custom notification",
+        message: result.success ? 'Custom notification sent successfully' : 'Failed to send custom notification',
         data: {
           title,
           sentVia: result.sentVia,
-          errors: result.errors,
-        },
+          errors: result.errors
+        }
       });
     } catch (error) {
-      console.error("Error sending custom notification:", error);
+      console.error('Error sending custom notification:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to send custom notification",
-        error: error instanceof Error ? error.message : "Unknown error",
+        message: 'Failed to send custom notification',
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   };
@@ -393,7 +371,7 @@ class NotificationController {
       if (!userId) {
         res.status(401).json({
           success: false,
-          message: "Authentication required",
+          message: 'Authentication required'
         });
         return;
       }
@@ -401,7 +379,7 @@ class NotificationController {
       if (!preferences) {
         res.status(400).json({
           success: false,
-          message: "Preferences object is required",
+          message: 'Preferences object is required'
         });
         return;
       }
@@ -415,22 +393,22 @@ class NotificationController {
       if (!user) {
         res.status(404).json({
           success: false,
-          message: "User not found",
+          message: 'User not found'
         });
         return;
       }
 
       res.json({
         success: true,
-        message: "Notification preferences updated successfully",
-        data: { preferences: user.notificationPreferences },
+        message: 'Notification preferences updated successfully',
+        data: { preferences: user.notificationPreferences }
       });
     } catch (error) {
-      console.error("Error updating notification preferences:", error);
+      console.error('Error updating notification preferences:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to update notification preferences",
-        error: error instanceof Error ? error.message : "Unknown error",
+        message: 'Failed to update notification preferences',
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   };
@@ -439,11 +417,11 @@ class NotificationController {
   getPreferences: RequestHandler = async (req, res) => {
     try {
       const userId = getUserId(req);
-
+      
       if (!userId) {
         res.status(401).json({
           success: false,
-          message: "Authentication required",
+          message: 'Authentication required'
         });
         return;
       }
@@ -453,7 +431,7 @@ class NotificationController {
       if (!user) {
         res.status(404).json({
           success: false,
-          message: "User not found",
+          message: 'User not found'
         });
         return;
       }
@@ -464,97 +442,20 @@ class NotificationController {
         push: true,
         taskReminders: true,
         weeklyReports: true,
-        customMessages: true,
+        customMessages: true
       };
 
       res.json({
         success: true,
-        message: "Notification preferences retrieved successfully",
-        data: {
-          preferences: user.notificationPreferences || defaultPreferences,
-        },
+        message: 'Notification preferences retrieved successfully',
+        data: { preferences: user.notificationPreferences || defaultPreferences }
       });
     } catch (error) {
-      console.error("Error getting notification preferences:", error);
+      console.error('Error getting notification preferences:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to get notification preferences",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  };
-
-  // GET /api/notifications/health - Public health check (no auth required)
-  healthCheck: RequestHandler = async (req, res) => {
-    try {
-      const services = {
-        whatsapp: {
-          enabled: !!(
-            process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-          ),
-          configured: !!(
-            process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-          ),
-          status: !!(
-            process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-          )
-            ? "ready"
-            : "credentials_missing",
-        },
-        email: {
-          enabled: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
-          configured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
-          status: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS)
-            ? "ready"
-            : "credentials_missing",
-        },
-        push: {
-          enabled: !!(
-            process.env.ONESIGNAL_APP_ID && process.env.ONESIGNAL_API_KEY
-          ),
-          configured: !!(
-            process.env.ONESIGNAL_APP_ID && process.env.ONESIGNAL_API_KEY
-          ),
-          status: !!(
-            process.env.ONESIGNAL_APP_ID && process.env.ONESIGNAL_API_KEY
-          )
-            ? "ready"
-            : "credentials_missing",
-        },
-      };
-
-      const totalServices = 3;
-      const enabledServices = Object.values(services)
-        .filter((service) => service.enabled)
-        .length;
-      const overallStatus =
-        enabledServices === totalServices
-          ? "all_ready"
-          : enabledServices > 0
-          ? "partial"
-          : "needs_setup";
-
-      res.json({
-        success: true,
-        message: "Notification services health check",
-        data: {
-          overall: {
-            status: overallStatus,
-            ready: enabledServices,
-            total: totalServices,
-            percentage: Math.round((enabledServices / totalServices) * 100),
-          },
-          services,
-          setup_guide: "See NOTIFICATION_SETUP_GUIDE.md for configuration instructions",
-          test_mode: process.env.NOTIFICATION_TEST_MODE === "true",
-        },
-      });
-    } catch (error) {
-      console.error("Error in health check:", error);
-      res.status(500).json({
-        success: false,
-        message: "Health check failed",
-        error: error instanceof Error ? error.message : "Unknown error",
+        message: 'Failed to get notification preferences',
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   };
@@ -562,38 +463,25 @@ class NotificationController {
   // Helper function to generate weekly insights
   private generateWeeklyInsights(stats: any, tasks: any[]): string[] {
     const insights: string[] = [];
-
-    const completionRate =
-      stats.totalTasks > 0
-        ? (stats.completedTasks / stats.totalTasks) * 100
-        : 0;
+    
+    const completionRate = stats.totalTasks > 0 ? (stats.completedTasks / stats.totalTasks) * 100 : 0;
 
     if (completionRate >= 80) {
-      insights.push(
-        "🎉 Excellent completion rate! You're crushing your goals!"
-      );
+      insights.push('🎉 Excellent completion rate! You\'re crushing your goals!');
     } else if (completionRate >= 60) {
-      insights.push("👏 Good progress this week! Keep up the momentum!");
+      insights.push('👏 Good progress this week! Keep up the momentum!');
     } else if (completionRate >= 40) {
-      insights.push(
-        "📈 Room for improvement. Consider breaking down large tasks."
-      );
+      insights.push('📈 Room for improvement. Consider breaking down large tasks.');
     } else {
-      insights.push(
-        "💪 Focus on priorities. Start with small, achievable tasks."
-      );
+      insights.push('💪 Focus on priorities. Start with small, achievable tasks.');
     }
 
     if (stats.overdueTasks > 0) {
-      insights.push(
-        `⚠️ ${stats.overdueTasks} overdue task(s). Consider rescheduling or breaking them down.`
-      );
+      insights.push(`⚠️ ${stats.overdueTasks} overdue task(s). Consider rescheduling or breaking them down.`);
     }
 
     if (stats.totalTasks === 0) {
-      insights.push(
-        "📝 No tasks created this week. Consider setting some goals for next week!"
-      );
+      insights.push('📝 No tasks created this week. Consider setting some goals for next week!');
     }
 
     return insights;

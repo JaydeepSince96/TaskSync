@@ -6,10 +6,7 @@
     "start": "node dist/index.js",
     "build": "tsc",
     "dev": "nodemon src/index.ts",
-    "migrate": "npx ts-node src/migrations/run-migrations.ts",
-    "setup-security": "node scripts/setup-security.js",
-    "check-secrets": "node scripts/check-for-secrets.js",
-    "env-template": "cp .env.template .env && echo 'Created .env from template. Edit with your credentials.'"
+    "migrate": "npx ts-node src/migrations/run-migrations.ts"
   },
   "keywords": [],
   "author": "",

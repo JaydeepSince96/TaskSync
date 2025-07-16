@@ -460,6 +460,66 @@ class NotificationController {
     }
   };
 
+  // GET /api/notifications/health - Public health check (no auth required)
+  healthCheck: RequestHandler = async (req, res) => {
+    try {
+      const services = {
+        whatsapp: {
+          enabled: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
+          configured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
+          status: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) 
+            ? 'ready' 
+            : 'credentials_missing'
+        },
+        email: {
+          enabled: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
+          configured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
+          status: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS) 
+            ? 'ready' 
+            : 'credentials_missing'
+        },
+        push: {
+          enabled: !!(process.env.ONESIGNAL_APP_ID && process.env.ONESIGNAL_API_KEY),
+          configured: !!(process.env.ONESIGNAL_APP_ID && process.env.ONESIGNAL_API_KEY),
+          status: !!(process.env.ONESIGNAL_APP_ID && process.env.ONESIGNAL_API_KEY) 
+            ? 'ready' 
+            : 'credentials_missing'
+        }
+      };
+
+      const totalServices = 3;
+      const enabledServices = Object.values(services).filter(service => service.enabled).length;
+      const overallStatus = enabledServices === totalServices 
+        ? 'all_ready' 
+        : enabledServices > 0 
+          ? 'partial' 
+          : 'needs_setup';
+
+      res.json({
+        success: true,
+        message: 'Notification services health check',
+        data: {
+          overall: {
+            status: overallStatus,
+            ready: enabledServices,
+            total: totalServices,
+            percentage: Math.round((enabledServices / totalServices) * 100)
+          },
+          services,
+          setup_guide: 'See NOTIFICATION_SETUP_GUIDE.md for configuration instructions',
+          test_mode: process.env.NOTIFICATION_TEST_MODE === 'true'
+        }
+      });
+    } catch (error) {
+      console.error('Error in health check:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Health check failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
   // Helper function to generate weekly insights
   private generateWeeklyInsights(stats: any, tasks: any[]): string[] {
     const insights: string[] = [];
@@ -486,81 +546,6 @@ class NotificationController {
 
     return insights;
   }
-
-  // GET /api/notifications/health - Public health check (no auth required)
-  healthCheck: RequestHandler = async (req, res) => {
-    try {
-      const services = {
-        whatsapp: {
-          enabled: !!(
-            process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-          ),
-          configured: !!(
-            process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-          ),
-          status: !!(
-            process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-          )
-            ? "ready"
-            : "credentials_missing",
-        },
-        email: {
-          enabled: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
-          configured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
-          status: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS)
-            ? "ready"
-            : "credentials_missing",
-        },
-        push: {
-          enabled: !!(
-            process.env.ONESIGNAL_APP_ID && process.env.ONESIGNAL_API_KEY
-          ),
-          configured: !!(
-            process.env.ONESIGNAL_APP_ID && process.env.ONESIGNAL_API_KEY
-          ),
-          status: !!(
-            process.env.ONESIGNAL_APP_ID && process.env.ONESIGNAL_API_KEY
-          )
-            ? "ready"
-            : "credentials_missing",
-        },
-      };
-
-      const totalServices = 3;
-      const enabledServices = Object.values(services)
-        .filter((service) => service.enabled)
-        .length;
-      const overallStatus =
-        enabledServices === totalServices
-          ? "all_ready"
-          : enabledServices > 0
-          ? "partial"
-          : "needs_setup";
-
-      res.json({
-        success: true,
-        message: "Notification services health check",
-        data: {
-          overall: {
-            status: overallStatus,
-            ready: enabledServices,
-            total: totalServices,
-            percentage: Math.round((enabledServices / totalServices) * 100),
-          },
-          services,
-          setup_guide: "See NOTIFICATION_SETUP_GUIDE.md for configuration instructions",
-          test_mode: process.env.NOTIFICATION_TEST_MODE === "true",
-        },
-      });
-    } catch (error) {
-      console.error("Error in health check:", error);
-      res.status(500).json({
-        success: false,
-        message: "Health check failed",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  };
 }
 
 export default NotificationController;
