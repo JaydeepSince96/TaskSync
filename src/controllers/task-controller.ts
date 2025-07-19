@@ -292,7 +292,7 @@ class TaskController {
       }
 
       const { id } = req.params;
-      const { title, completed, label, startDate, dueDate } = req.body;
+      const { title, completed, label, startDate, dueDate, assignedTo } = req.body;
 
       if (label && !Object.values(TaskLabel).includes(label)) {
         res.status(400).json({ 
@@ -373,6 +373,11 @@ class TaskController {
           });
           return;
         }
+      }
+
+      // Handle assignedTo field
+      if (assignedTo !== undefined) {
+        updateData.assignedTo = assignedTo;
       }
 
       const todo = await TaskService.updateTask(id, userId, updateData);

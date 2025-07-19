@@ -17,9 +17,9 @@ class UserController {
         return;
       }
 
-      // Get all users except the current user, return only necessary fields
+      // Get all users including the current user, return only necessary fields
       const users = await User.find(
-        { _id: { $ne: userId } },
+        {},
         { name: 1, email: 1, profilePicture: 1 }
       ).sort({ name: 1 });
 
@@ -41,7 +41,20 @@ class UserController {
   searchUsers: RequestHandler = async (req, res) => {
     try {
       const userId = getUserId(req);
-      const { query } = req.query;
+      let { query } = req.query;
+      
+      // Decode URL-encoded characters if present
+      if (typeof query === 'string') {
+        query = decodeURIComponent(query);
+      }
+      
+      // Debug logging to check what query is received
+      console.log('Received search query:', {
+        raw: req.query.query,
+        decoded: query,
+        type: typeof query,
+        trimmed: typeof query === 'string' ? query.trim() : 'N/A'
+      });
       
       if (!userId) {
         res.status(401).json({ 
@@ -59,10 +72,9 @@ class UserController {
         return;
       }
 
-      // Search users by email or name (case-insensitive)
+      // Search users by email or name (case-insensitive), including current user
       const users = await User.find(
         {
-          _id: { $ne: userId },
           $or: [
             { email: { $regex: query.trim(), $options: 'i' } },
             { name: { $regex: query.trim(), $options: 'i' } }
@@ -72,6 +84,15 @@ class UserController {
       )
       .limit(10) // Limit results for performance
       .sort({ name: 1 });
+
+      // Debug logging to check search results
+      console.log('Search results:', {
+        query: query.trim(),
+        currentUserId: userId,
+        foundUsers: users.length,
+        userEmails: users.map(u => u.email),
+        includesCurrentUser: users.some(u => (u as any)._id.toString() === userId)
+      });
 
       res.status(200).json({
         success: true,

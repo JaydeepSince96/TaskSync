@@ -206,7 +206,7 @@ class TaskService {
   }
 
   // Update a task for a specific user
-  async updateTask(id: string, userId: string, updateData: { title?: string; completed?: boolean; label?: TaskLabel; startDate?: Date; dueDate?: Date }): Promise<ITask | null> {
+  async updateTask(id: string, userId: string, updateData: { title?: string; completed?: boolean; label?: TaskLabel; startDate?: Date; dueDate?: Date; assignedTo?: string[] }): Promise<ITask | null> {
     const filteredUpdateData: any = {};
     
     if (updateData.title !== undefined) filteredUpdateData.title = updateData.title;
@@ -215,7 +215,44 @@ class TaskService {
     if (updateData.startDate !== undefined) filteredUpdateData.startDate = updateData.startDate;
     if (updateData.dueDate !== undefined) filteredUpdateData.dueDate = updateData.dueDate;
     
-    return await Task.findOneAndUpdate({ _id: id, userId }, filteredUpdateData, { new: true });
+    // Handle assignedTo field - convert emails to ObjectIds
+    if (updateData.assignedTo !== undefined) {
+      if (updateData.assignedTo.length === 0) {
+        // If empty array, clear assignments
+        filteredUpdateData.assignedTo = [];
+      } else {
+        try {
+          const assignedUserIds = [];
+          
+          for (const email of updateData.assignedTo) {
+            if (email && email.trim()) {
+              // Find user by email
+              const assignedUser = await User.findOne({ email: email.trim() });
+              if (assignedUser) {
+                assignedUserIds.push(assignedUser._id);
+              } else {
+                // If user not found, throw an error to ensure data integrity
+                throw new Error(`User with email "${email.trim()}" not found`);
+              }
+            }
+          }
+          
+          filteredUpdateData.assignedTo = assignedUserIds;
+        } catch (error) {
+          // Re-throw the error to be handled by the controller
+          throw error;
+        }
+      }
+    }
+    
+    const updatedTask = await Task.findOneAndUpdate({ _id: id, userId }, filteredUpdateData, { new: true });
+    
+    if (updatedTask) {
+      // Populate assignedTo with user details
+      return await updatedTask.populate('assignedTo', 'name email profilePicture');
+    }
+    
+    return null;
   }
 
   // Delete a task for a specific user
