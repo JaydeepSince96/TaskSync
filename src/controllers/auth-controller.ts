@@ -4,16 +4,36 @@ import { AuthService } from "../services/auth-service";
 import { User } from "../models/user-model";
 import { deleteOldProfilePicture, generateFileUrl } from "../middleware/upload-middleware";
 import { getUserId } from "../utils/auth-types";
+import InvitationService from "../services/invitation-service";
+import { IInvitation } from "../models/invitation-model";
 
 export class AuthController {
   // Register new user
   static async register(req: Request, res: Response): Promise<void> {
     try {
-      const { name, email, password } = req.body;
+      const { name, email, password, invitationToken } = req.body;
+
+      // If an invitation token is provided, validate it
+      let validInvitation: IInvitation | null = null;
+      if (invitationToken) {
+        validInvitation = await InvitationService.validateInvitationToken(invitationToken, email);
+        if (!validInvitation) {
+          res.status(400).json({
+            success: false,
+            message: "Invalid or expired invitation token"
+          });
+          return;
+        }
+      }
 
       const result = await AuthService.register({ name, email, password });
 
       if (result.success) {
+        // If registration was successful and there was a valid invitation, mark it as accepted
+        if (validInvitation) {
+          await InvitationService.acceptInvitation((validInvitation._id as string).toString());
+        }
+        
         res.status(201).json(result);
       } else {
         res.status(400).json(result);

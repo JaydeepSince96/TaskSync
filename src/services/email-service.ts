@@ -294,6 +294,95 @@ TaskSync Team
     return this.isInitialized && this.transporter !== null;
   }
 
+  // Send invitation email
+  async sendInvitationEmail(invitation: any, inviterName: string): Promise<void> {
+    if (!this.isInitialized) {
+      console.log('📧 Email service not initialized. Logging invitation details:');
+      console.log(`To: ${invitation.email}`);
+      console.log(`From: ${inviterName}`);
+      console.log(`Token: ${invitation.token}`);
+      console.log(`Expires: ${invitation.expiresAt}`);
+      console.log(`Invite URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/signup?token=${invitation.token}`);
+      return;
+    }
+
+    const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/signup?token=${invitation.token}`;
+    
+    const mailOptions = {
+      from: `${EMAIL_FROM_NAME} <${EMAIL_USER}>`,
+      to: invitation.email,
+      subject: `${inviterName} invited you to join TaskSync`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #0ea5e9; margin: 0;">TaskSync</h1>
+            <p style="color: #666; margin: 5px 0;">Task Management Made Simple</p>
+          </div>
+          
+          <div style="background: #f8fafc; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
+            <h2 style="color: #1e293b; margin-top: 0;">You're Invited!</h2>
+            <p style="color: #475569; font-size: 16px; line-height: 1.5;">
+              <strong>${inviterName}</strong> has invited you to join their team on TaskSync.
+            </p>
+            <p style="color: #475569; font-size: 16px; line-height: 1.5;">
+              TaskSync helps teams organize, assign, and track tasks efficiently. 
+              Join now to start collaborating!
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-bottom: 30px;">
+            <a href="${inviteUrl}" 
+               style="display: inline-block; background: #0ea5e9; color: white; padding: 12px 30px; 
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+              Accept Invitation & Sign Up
+            </a>
+          </div>
+          
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 20px;">
+            <p style="color: #64748b; font-size: 14px; margin: 0;">
+              This invitation will expire on <strong>${invitation.expiresAt.toLocaleDateString()}</strong>.
+            </p>
+            <p style="color: #64748b; font-size: 14px; margin: 10px 0 0 0;">
+              If you can't click the button above, copy and paste this link into your browser:
+            </p>
+            <p style="color: #0ea5e9; font-size: 14px; word-break: break-all;">
+              ${inviteUrl}
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+              © 2025 TaskSync. All rights reserved.
+            </p>
+          </div>
+        </div>
+      `,
+      text: `
+        ${inviterName} invited you to join TaskSync!
+        
+        You've been invited to join their team on TaskSync - a powerful task management platform.
+        
+        Click here to accept the invitation and sign up:
+        ${inviteUrl}
+        
+        This invitation expires on ${invitation.expiresAt.toLocaleDateString()}.
+        
+        Best regards,
+        The TaskSync Team
+      `
+    };
+
+    try {
+      if (this.transporter) {
+        await this.transporter.sendMail(mailOptions);
+        console.log(`✅ Invitation email sent to ${invitation.email}`);
+      }
+    } catch (error) {
+      console.error('❌ Error sending invitation email:', error);
+      throw new Error('Failed to send invitation email');
+    }
+  }
+
   // Get service status
   getStatus() {
     return {

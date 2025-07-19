@@ -2,6 +2,7 @@
 import { Request, Response, RequestHandler } from "express";
 import { User } from "../models/user-model";
 import { getUserId } from "../utils/auth-types";
+import InvitationService from "../services/invitation-service";
 
 class UserController {
   // Get all users for assignment dropdown (email and name only)
@@ -37,7 +38,7 @@ class UserController {
     }
   };
 
-  // Search users by email or name for autocomplete
+  // Search users by email or name for autocomplete (only invited users)
   searchUsers: RequestHandler = async (req, res) => {
     try {
       const userId = getUserId(req);
@@ -72,31 +73,31 @@ class UserController {
         return;
       }
 
-      // Search users by email or name (case-insensitive), including current user
-      const users = await User.find(
-        {
-          $or: [
-            { email: { $regex: query.trim(), $options: 'i' } },
-            { name: { $regex: query.trim(), $options: 'i' } }
-          ]
-        },
-        { name: 1, email: 1, profilePicture: 1 }
-      )
-      .limit(10) // Limit results for performance
-      .sort({ name: 1 });
+      // Get invited users only (registered users who were invited by this user)
+      const invitedUsers = await InvitationService.getInvitedUsers(userId);
+      
+      // Filter invited users based on the search query
+      const filteredUsers = invitedUsers.filter(user => {
+        const searchTerm = query.trim().toLowerCase();
+        return (
+          user.email.toLowerCase().includes(searchTerm) ||
+          user.name.toLowerCase().includes(searchTerm)
+        );
+      }).filter(user => user.isRegistered); // Only show registered users for assignment
 
       // Debug logging to check search results
       console.log('Search results:', {
         query: query.trim(),
         currentUserId: userId,
-        foundUsers: users.length,
-        userEmails: users.map(u => u.email),
-        includesCurrentUser: users.some(u => (u as any)._id.toString() === userId)
+        totalInvitedUsers: invitedUsers.length,
+        registeredInvitedUsers: invitedUsers.filter(u => u.isRegistered).length,
+        filteredResults: filteredUsers.length,
+        resultEmails: filteredUsers.map(u => u.email)
       });
 
       res.status(200).json({
         success: true,
-        data: users,
+        data: filteredUsers,
         message: "Users found successfully"
       });
     } catch (error) {
