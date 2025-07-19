@@ -12,6 +12,7 @@ import statsRoute from "./routes/stats-route";
 import notificationRoute from "./routes/notification-route";
 import userRoute from "./routes/user-route";
 import invitationRoute from "./routes/invitation-route";
+import paymentRoute from "./routes/payment-route";
 
 const app = express();
 
@@ -76,6 +77,7 @@ app.use("/api", statsRoute);
 app.use("/api/notifications", notificationRoute);
 app.use("/api/users", userRoute);
 app.use("/api/invitations", invitationRoute);
+app.use("/api/payment", paymentRoute);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {

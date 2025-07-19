@@ -28,6 +28,14 @@ export interface IUser extends Document {
   };
   // Contact information for notifications
   phoneNumber?: string;
+  // Subscription information
+  subscriptionStatus?: 'trial' | 'active' | 'expired' | 'cancelled';
+  subscriptionPlan?: 'trial' | 'monthly' | 'quarterly';
+  subscriptionEndDate?: Date;
+  trialEndDate?: Date;
+  // Trial usage tracking
+  hasUsedFreeTrial?: boolean;
+  trialUsedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
   lastLogin?: Date;
@@ -133,6 +141,31 @@ const UserSchema = new Schema<IUser>(
       type: String,
       trim: true,
       sparse: true // Allows multiple null values
+    },
+    // Subscription information (for quick access, detailed info in Subscription collection)
+    subscriptionStatus: {
+      type: String,
+      enum: ['trial', 'active', 'expired', 'cancelled'],
+      default: 'trial'
+    },
+    subscriptionPlan: {
+      type: String,
+      enum: ['trial', 'monthly', 'quarterly'],
+      default: 'trial'
+    },
+    subscriptionEndDate: {
+      type: Date
+    },
+    trialEndDate: {
+      type: Date
+    },
+    // Trial usage tracking
+    hasUsedFreeTrial: {
+      type: Boolean,
+      default: false
+    },
+    trialUsedAt: {
+      type: Date
     },
     lastLogin: {
       type: Date

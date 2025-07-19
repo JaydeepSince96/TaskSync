@@ -6,6 +6,7 @@ import { deleteOldProfilePicture, generateFileUrl } from "../middleware/upload-m
 import { getUserId } from "../utils/auth-types";
 import InvitationService from "../services/invitation-service";
 import { IInvitation } from "../models/invitation-model";
+import subscriptionService from "../services/subscription-service";
 
 export class AuthController {
   // Register new user
@@ -32,6 +33,17 @@ export class AuthController {
         // If registration was successful and there was a valid invitation, mark it as accepted
         if (validInvitation) {
           await InvitationService.acceptInvitation((validInvitation._id as string).toString());
+        }
+        
+        // Initialize trial subscription for new user
+        if (result.data?.user?._id) {
+          const trialResult = await subscriptionService.initializeTrialSubscription(result.data.user._id.toString());
+          if (trialResult.success) {
+            console.log(`Trial subscription initialized for user ${result.data.user._id}`);
+          } else {
+            console.log(`Trial initialization failed for user ${result.data.user._id}: ${trialResult.message}`);
+            // Don't fail registration if trial initialization fails
+          }
         }
         
         res.status(201).json(result);

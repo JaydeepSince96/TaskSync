@@ -36,3 +36,8 @@ export const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || "wha
 // OneSignal Push Notification Configuration
 export const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || "";
 export const ONESIGNAL_API_KEY = process.env.ONESIGNAL_API_KEY || "";
+
+// Razorpay Configuration
+export const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || "";
+export const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || "";
+export const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || "";
