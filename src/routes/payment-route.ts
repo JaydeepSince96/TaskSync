@@ -2,24 +2,28 @@
 import { Router } from "express";
 import { PaymentController } from "../controllers/payment-controller";
 import { authenticateToken } from "../middleware/auth-middleware";
+import { SubscriptionService } from "../services/subscription-service";
 
-const router = Router();
+const subscriptionService = new SubscriptionService();
+const paymentController = new PaymentController(subscriptionService);
+
+const paymentRouter = Router();
 
 // Public routes
-router.get('/plans', PaymentController.getPlans);
-router.get('/payment-methods', PaymentController.getPaymentMethods);
-router.post('/webhook', PaymentController.handleWebhook); // Razorpay webhook
+paymentRouter.get('/plans', paymentController.getPlans);
+paymentRouter.get('/payment-methods', paymentController.getPaymentMethods);
+paymentRouter.post('/webhook', paymentController.handleWebhook); // Razorpay webhook
 
 // Protected routes - require authentication
-router.use(authenticateToken); // Apply authentication to all routes below
+paymentRouter.use(authenticateToken); // Apply authentication to all routes below
 
 // Subscription management
-router.get('/subscription/status', PaymentController.getSubscriptionStatus);
-router.get('/subscription/trial-eligibility', PaymentController.checkTrialEligibility);
-router.post('/subscription/trial', PaymentController.initializeTrial);
-router.post('/subscription/order', PaymentController.createOrder);
-router.post('/subscription/verify', PaymentController.verifyPayment);
-router.post('/subscription/cancel', PaymentController.cancelSubscription);
-router.get('/subscription/history', PaymentController.getSubscriptionHistory);
+paymentRouter.get('/subscription/status', paymentController.getSubscriptionStatus);
+paymentRouter.get('/subscription/trial-eligibility', paymentController.checkTrialEligibility);
+paymentRouter.post('/subscription/trial', paymentController.initializeTrial);
+paymentRouter.post('/subscription/order', paymentController.createOrder);
+paymentRouter.post('/subscription/verify', paymentController.verifyPayment);
+paymentRouter.post('/subscription/cancel', paymentController.cancelSubscription);
+paymentRouter.get('/subscription/history', paymentController.getSubscriptionHistory);
 
-export default router;
+export { paymentRouter };

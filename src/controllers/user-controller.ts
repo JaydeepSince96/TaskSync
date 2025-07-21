@@ -2,9 +2,11 @@
 import { Request, Response, RequestHandler } from "express";
 import { User } from "../models/user-model";
 import { getUserId } from "../utils/auth-types";
-import InvitationService from "../services/invitation-service";
+import { InvitationService } from "../services/invitation-service";
 
-class UserController {
+export class UserController {
+  constructor(private invitationService: InvitationService) {}
+
   // Get all users for assignment dropdown (email and name only)
   getAvailableUsers: RequestHandler = async (req, res) => {
     try {
@@ -74,7 +76,7 @@ class UserController {
       }
 
       // Get invited users only (registered users who were invited by this user)
-      const invitedUsers = await InvitationService.getInvitedUsers(userId);
+      const invitedUsers = await this.invitationService.getInvitedUsers(userId);
       
       // Filter invited users based on the search query
       const filteredUsers = invitedUsers.filter(user => {
@@ -108,6 +110,33 @@ class UserController {
       });
     }
   };
-}
 
-export default new UserController();
+  // Register FCM device token for push notifications
+  registerDeviceToken: RequestHandler = async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { deviceToken } = req.body;
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Authentication required" });
+        return;
+      }
+      if (!deviceToken || typeof deviceToken !== 'string') {
+        res.status(400).json({ success: false, message: "Device token is required" });
+        return;
+      }
+      const user = await User.findById(userId);
+      if (!user) {
+        res.status(404).json({ success: false, message: "User not found" });
+        return;
+      }
+      if (!user.deviceTokens.includes(deviceToken)) {
+        user.deviceTokens.push(deviceToken);
+        await user.save();
+      }
+      res.status(200).json({ success: true, message: "Device token registered successfully" });
+    } catch (error) {
+      console.error("Error registering device token:", error);
+      res.status(500).json({ success: false, message: "Failed to register device token" });
+    }
+  };
+}

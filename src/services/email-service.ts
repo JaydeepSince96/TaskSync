@@ -19,7 +19,7 @@ interface WeeklyReportData {
   insights: string[];
 }
 
-class EmailService {
+export class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private isInitialized = false;
 
@@ -393,5 +393,3 @@ TaskSync Team
     };
   }
 }
-
-export default new EmailService();

@@ -1,11 +1,13 @@
 // src/controllers/TodoController.ts
 import { Request, Response, RequestHandler } from "express";
-import TaskService from "../services/task-service";
+import { TaskService } from "../services/task-service";
 import { TaskLabel } from "../models/task-model";
 import { getUserId } from "../utils/auth-types";
 import { parseDateFromDDMMYYYY, formatDateToDDMMYYYY, formatDateWithTime } from "../utils/date-utils";
 
-class TaskController {
+export class TaskController {
+  constructor(private taskService: TaskService) {}
+
   // Helper function to format date (using DD/MM/YYYY format for consistency)
   private formatDate(date: Date): string {
     return formatDateToDDMMYYYY(date);
@@ -51,7 +53,7 @@ class TaskController {
         return;
       }
 
-      const todos = await TaskService.getAllTask(userId);
+      const todos = await this.taskService.getAllTask(userId);
       if (!todos || todos.length === 0) {
         res.status(200).json({ 
           success: true, 
@@ -86,7 +88,7 @@ class TaskController {
         return;
       }
 
-      const task = await TaskService.getTaskById(id, userId);
+      const task = await this.taskService.getTaskById(id, userId);
       if (!task) {
         res.status(404).json({ success: false, message: "Task not found" });
         return;
@@ -132,7 +134,7 @@ class TaskController {
         limit: parseInt(limit as string, 10)
       };
 
-      const result = await TaskService.getFilteredTasks(userId, filters);
+      const result = await this.taskService.getFilteredTasks(userId, filters);
       
       const formattedTasks = result.tasks.map(task => this.formatTaskResponse(task));
       
@@ -245,7 +247,7 @@ class TaskController {
         return;
       }
 
-      const task = await TaskService.createTask(userId, title, label, parsedStartDate, parsedDueDate, assignedTo);
+      const task = await this.taskService.createTask(userId, title, label, parsedStartDate, parsedDueDate, assignedTo);
 
       res.status(201).json({
         success: true,
@@ -380,7 +382,7 @@ class TaskController {
         updateData.assignedTo = assignedTo;
       }
 
-      const todo = await TaskService.updateTask(id, userId, updateData);
+      const todo = await this.taskService.updateTask(id, userId, updateData);
       if (!todo) {
         res.status(404).json({ success: false, message: "Task not found" });
         return;
@@ -406,7 +408,7 @@ class TaskController {
       }
 
       const { id } = req.params;
-      await TaskService.deleteTask(id, userId);
+      await this.taskService.deleteTask(id, userId);
       res.status(204).json({ success: true, message: "Task deleted successfully" });
     } catch (error) {
       res.status(500).json({
@@ -416,5 +418,3 @@ class TaskController {
     }
   };
 }
-
-export default new TaskController();

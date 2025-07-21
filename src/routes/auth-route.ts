@@ -1,4 +1,3 @@
-// src/routes/auth-route.ts
 import { Router } from "express";
 import { AuthController } from "../controllers/auth-controller";
 import { authenticateToken } from "../middleware/auth-middleware";
@@ -11,42 +10,50 @@ import {
   changePasswordValidation,
   handleValidationErrors
 } from "../middleware/validation-middleware";
+import { AuthService } from "../services/auth-service";
+import { InvitationService } from "../services/invitation-service";
+import { SubscriptionService } from "../services/subscription-service";
 
-const router = Router();
+const authService = new AuthService();
+const invitationService = new InvitationService();
+const subscriptionService = new SubscriptionService();
+const authController = new AuthController(authService, invitationService, subscriptionService);
+
+const authRouter = Router();
 
 // Public routes
-router.post(
+authRouter.post(
   "/register",
   registerValidation,
   handleValidationErrors,
-  AuthController.register
+  authController.register
 );
 
-router.post(
+authRouter.post(
   "/login",
   loginValidation,
   handleValidationErrors,
-  AuthController.login
+  authController.login
 );
 
-router.post("/refresh-token", AuthController.refreshToken);
+authRouter.post("/refresh-token", authController.refreshToken);
 
 // Google OAuth routes (only if credentials are configured)
 if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
-  router.get("/google", 
+  authRouter.get("/google", 
     passport.authenticate("google", { scope: ["profile", "email"] })
   );
 
-  router.get("/google/callback",
+  authRouter.get("/google/callback",
     passport.authenticate("google", { 
       failureRedirect: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/login?error=auth_failed`,
       session: false 
     }),
-    AuthController.googleCallback
+    authController.googleCallback
   );
 } else {
   // Provide fallback route that returns an error
-  router.get("/google", (req, res) => {
+  authRouter.get("/google", (req, res) => {
     res.status(503).json({
       success: false,
       message: "Google OAuth is not configured on this server"
@@ -55,31 +62,31 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
 }
 
 // Protected routes
-router.post("/logout", authenticateToken, AuthController.logout);
-router.post("/logout-all", authenticateToken, AuthController.logoutAll);
+authRouter.post("/logout", authenticateToken, authController.logout);
+authRouter.post("/logout-all", authenticateToken, authController.logoutAll);
 
-router.get("/profile", authenticateToken, AuthController.getProfile);
-router.put("/profile", authenticateToken, AuthController.updateProfile);
+authRouter.get("/profile", authenticateToken, authController.getProfile);
+authRouter.put("/profile", authenticateToken, authController.updateProfile);
 
-router.get("/preferences", authenticateToken, AuthController.getPreferences);
-router.put("/preferences", authenticateToken, AuthController.updatePreferences);
+authRouter.get("/preferences", authenticateToken, authController.getPreferences);
+authRouter.put("/preferences", authenticateToken, authController.updatePreferences);
 
-router.post(
+authRouter.post(
   "/upload-profile-picture",
   authenticateToken,
   uploadProfilePicture.single("profilePicture"),
   handleUploadError,
-  AuthController.uploadProfilePicture
+  authController.uploadProfilePicture
 );
 
-router.put(
+authRouter.put(
   "/change-password",
   authenticateToken,
   changePasswordValidation,
   handleValidationErrors,
-  AuthController.changePassword
+  authController.changePassword
 );
 
-router.delete("/account", authenticateToken, AuthController.deleteAccount);
+authRouter.delete("/account", authenticateToken, authController.deleteAccount);
 
-export default router;
+export { authRouter };

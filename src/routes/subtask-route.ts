@@ -1,21 +1,19 @@
 import { Router } from "express";
-import SubtaskController from "../controllers/subtask-controller";
+import { SubtaskController } from "../controllers/subtask-controller";
+import { SubtaskService } from "../services/subtask-service";
 import { authenticateToken } from "../middleware/auth-middleware";
 
-const router = Router();
+const subtaskService = new SubtaskService();
+const subtaskController = new SubtaskController(subtaskService);
 
-// Apply authentication to all subtask routes
-router.use(authenticateToken);
+const subtaskRouter = Router();
+subtaskRouter.use(authenticateToken);
+subtaskRouter.post("/tasks/:taskId/subtasks", subtaskController.createSubtask);
+subtaskRouter.get("/tasks/:taskId/subtasks", subtaskController.getSubtasksByTaskId);
+subtaskRouter.get("/tasks/:taskId/subtasks/stats", subtaskController.getSubtaskStats);
+subtaskRouter.get("/subtasks/:subtaskId", subtaskController.getSubtaskById);
+subtaskRouter.put("/subtasks/:subtaskId", subtaskController.updateSubtask);
+subtaskRouter.patch("/subtasks/:subtaskId/toggle", subtaskController.toggleSubtask);
+subtaskRouter.delete("/subtasks/:subtaskId", subtaskController.deleteSubtask);
 
-// Subtask routes for a specific task
-router.post("/tasks/:taskId/subtasks", SubtaskController.createSubtask);
-router.get("/tasks/:taskId/subtasks", SubtaskController.getSubtasksByTaskId);
-router.get("/tasks/:taskId/subtasks/stats", SubtaskController.getSubtaskStats);
-
-// Individual subtask routes
-router.get("/subtasks/:subtaskId", SubtaskController.getSubtaskById);
-router.put("/subtasks/:subtaskId", SubtaskController.updateSubtask);
-router.patch("/subtasks/:subtaskId/toggle", SubtaskController.toggleSubtask);
-router.delete("/subtasks/:subtaskId", SubtaskController.deleteSubtask);
-
-export default router;
+export { subtaskRouter };

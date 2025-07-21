@@ -1,9 +1,10 @@
-// src/controllers/StatsController.ts
 import { Request, Response, RequestHandler } from "express";
-import statsService from "../services/stats-service";
+import { StatsService } from "../services/stats-service";
 import { getUserId } from "../utils/auth-types";
 
-class StatsController {
+export class StatsController {
+  constructor(private statsService: StatsService) {}
+
   // Get todo statistics with optional date filtering
   getTaskStats: RequestHandler = async (req, res) => {
     console.log("Stats endpoint hit");
@@ -33,7 +34,7 @@ class StatsController {
       console.log("Filter parameters:", { period, startDate, endDate, year, month, week });
 
       const [labelStats, overallStats] = await Promise.all([
-        statsService.getTaskStats(userId, {
+        this.statsService.getTaskStats(userId, {
           period: period as string,
           startDate: startDate as string,
           endDate: endDate as string,
@@ -41,7 +42,7 @@ class StatsController {
           month: month ? parseInt(month as string) : undefined,
           week: week ? parseInt(week as string) : undefined,
         }),
-        statsService.getOverallStats(userId, {
+        this.statsService.getOverallStats(userId, {
           period: period as string,
           startDate: startDate as string,
           endDate: endDate as string,
@@ -75,6 +76,4 @@ class StatsController {
       });
     }
   };
-}
-
-export default new StatsController(); 
+} 

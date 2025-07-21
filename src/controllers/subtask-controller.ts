@@ -1,8 +1,10 @@
 import { RequestHandler } from "express";
-import SubtaskService from "../services/subtask-service";
+import { SubtaskService } from "../services/subtask-service";
 import { getUserId } from "../utils/auth-types";
 
-class SubtaskController {
+export class SubtaskController {
+  constructor(private subtaskService: SubtaskService) {}
+
   // Create a new subtask
   createSubtask: RequestHandler = async (req, res) => {
     console.log('🔥 Backend: createSubtask called with body:', req.body);
@@ -69,7 +71,7 @@ class SubtaskController {
         return;
       }
 
-      const subtask = await SubtaskService.createSubtask(
+      const subtask = await this.subtaskService.createSubtask(
         userId, 
         taskId, 
         title.trim(), 
@@ -112,7 +114,7 @@ class SubtaskController {
         return;
       }
 
-      const subtasks = await SubtaskService.getSubtasksByTaskId(userId, taskId);
+      const subtasks = await this.subtaskService.getSubtasksByTaskId(userId, taskId);
 
       res.status(200).json({
         success: true,
@@ -148,7 +150,7 @@ class SubtaskController {
         return;
       }
 
-      const subtask = await SubtaskService.getSubtaskById(userId, subtaskId);
+      const subtask = await this.subtaskService.getSubtaskById(userId, subtaskId);
 
       res.status(200).json({
         success: true,
@@ -205,7 +207,7 @@ class SubtaskController {
         return;
       }
 
-      const subtask = await SubtaskService.updateSubtask(userId, subtaskId, updateData);
+      const subtask = await this.subtaskService.updateSubtask(userId, subtaskId, updateData);
 
       res.status(200).json({
         success: true,
@@ -241,7 +243,7 @@ class SubtaskController {
         return;
       }
 
-      const result = await SubtaskService.deleteSubtask(userId, subtaskId);
+      const result = await this.subtaskService.deleteSubtask(userId, subtaskId);
 
       res.status(200).json({
         success: true,
@@ -277,7 +279,7 @@ class SubtaskController {
         return;
       }
 
-      const subtask = await SubtaskService.toggleSubtask(userId, subtaskId);
+      const subtask = await this.subtaskService.toggleSubtask(userId, subtaskId);
 
       res.status(200).json({
         success: true,
@@ -313,7 +315,7 @@ class SubtaskController {
         return;
       }
 
-      const stats = await SubtaskService.getSubtaskStats(userId, taskId);
+      const stats = await this.subtaskService.getSubtaskStats(userId, taskId);
 
       res.status(200).json({
         success: true,
@@ -329,5 +331,3 @@ class SubtaskController {
     }
   };
 }
-
-export default new SubtaskController();

@@ -10,7 +10,7 @@ interface SubtaskStats {
   completionRate: number;
 }
 
-class SubtaskService {
+export class SubtaskService {
   // Create a new subtask for a specific user
   async createSubtask(
     userId: string, 
@@ -220,5 +220,3 @@ class SubtaskService {
     };
   }
 }
-
-export default new SubtaskService();

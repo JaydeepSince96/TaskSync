@@ -1,13 +1,22 @@
 // src/routes/notification-route.ts
 import express from 'express';
-import NotificationController from '../controllers/notification-controller';
+import { NotificationController } from '../controllers/notification-controller';
 import { authenticateToken } from '../middleware/auth-middleware';
+import { NotificationManager } from '../services/notification-manager';
+import { WhatsAppService } from '../services/whatsapp-service';
+import { EmailService } from '../services/email-service';
+import { PushNotificationService } from '../services/push-notification-service';
 
-const router = express.Router();
-const notificationController = new NotificationController();
+const notificationManager = new NotificationManager();
+const whatsappService = new WhatsAppService();
+const emailService = new EmailService();
+const pushNotificationService = new PushNotificationService();
+const notificationController = new NotificationController(notificationManager, whatsappService, emailService, pushNotificationService);
+
+const notificationRouter = express.Router();
 
 // Simple test endpoint (no auth)
-router.get('/test-public', (req, res) => {
+notificationRouter.get('/test-public', (req, res) => {
   res.json({
     success: true,
     message: "Public endpoint working",
@@ -16,39 +25,39 @@ router.get('/test-public', (req, res) => {
 });
 
 // GET /api/notifications/health - Public health check (no auth required)
-router.get('/health', notificationController.healthCheck);
+notificationRouter.get('/health', notificationController.healthCheck);
 
 // Apply authentication to all routes below this point
-router.use(authenticateToken);
+notificationRouter.use(authenticateToken);
 
 // GET /api/notifications/status - Get status of all notification services
-router.get('/status', notificationController.getServicesStatus);
+notificationRouter.get('/status', notificationController.getServicesStatus);
 
 // POST /api/notifications/test - Test all notification services
-router.post('/test', notificationController.testAllServices);
+notificationRouter.post('/test', notificationController.testAllServices);
 
 // POST /api/notifications/whatsapp/test - Test WhatsApp service specifically
-router.post('/whatsapp/test', notificationController.testWhatsApp);
+notificationRouter.post('/whatsapp/test', notificationController.testWhatsApp);
 
 // POST /api/notifications/email/test - Test Email service specifically
-router.post('/email/test', notificationController.testEmail);
+notificationRouter.post('/email/test', notificationController.testEmail);
 
 // POST /api/notifications/push/test - Test Push notification service specifically
-router.post('/push/test', notificationController.testPushNotifications);
+notificationRouter.post('/push/test', notificationController.testPushNotifications);
 
 // POST /api/notifications/task-reminder/:taskId - Send manual task reminder
-router.post('/task-reminder/:taskId', notificationController.sendTaskReminder);
+notificationRouter.post('/task-reminder/:taskId', notificationController.sendTaskReminder);
 
 // POST /api/notifications/weekly-report - Send manual weekly report
-router.post('/weekly-report', notificationController.sendWeeklyReport);
+notificationRouter.post('/weekly-report', notificationController.sendWeeklyReport);
 
 // POST /api/notifications/custom - Send custom notification
-router.post('/custom', notificationController.sendCustomMessage);
+notificationRouter.post('/custom', notificationController.sendCustomMessage);
 
 // GET /api/notifications/preferences - Get user notification preferences
-router.get('/preferences', notificationController.getPreferences);
+notificationRouter.get('/preferences', notificationController.getPreferences);
 
 // POST /api/notifications/preferences - Update user notification preferences
-router.post('/preferences', notificationController.updatePreferences);
+notificationRouter.post('/preferences', notificationController.updatePreferences);
 
-export default router;
+export { notificationRouter };

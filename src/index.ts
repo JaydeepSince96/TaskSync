@@ -5,14 +5,16 @@ import path from "path";
 import passport from "./configs/passport";
 import { connectDB } from "./utils/db";
 import { PORT } from "./configs/env";
-import taskRoute from "./routes/task-route";
-import subtaskRoute from "./routes/subtask-route";
-import authRoute from "./routes/auth-route";
-import statsRoute from "./routes/stats-route";
-import notificationRoute from "./routes/notification-route";
-import userRoute from "./routes/user-route";
-import invitationRoute from "./routes/invitation-route";
-import paymentRoute from "./routes/payment-route";
+import { taskRouter } from "./routes/task-route";
+import { subtaskRouter } from "./routes/subtask-route";
+import { authRouter } from "./routes/auth-route";
+import { statsRouter } from "./routes/stats-route";
+import { notificationRouter } from "./routes/notification-route";
+import { userRouter } from "./routes/user-route";
+import { invitationRouter } from "./routes/invitation-route";
+import { paymentRouter } from "./routes/payment-route";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 
 const app = express();
 
@@ -69,15 +71,29 @@ app.use((req, res, next) => {
 // Serve static files (for profile pictures)
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
+// Security middleware
+app.use(helmet());
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many requests from this IP, please try again later."
+  }
+});
+app.use("/api/", apiLimiter);
+
 // Routes
-app.use("/api/auth", authRoute);
-app.use("/api/task", taskRoute);
-app.use("/api", subtaskRoute);
-app.use("/api", statsRoute);
-app.use("/api/notifications", notificationRoute);
-app.use("/api/users", userRoute);
-app.use("/api/invitations", invitationRoute);
-app.use("/api/payment", paymentRoute);
+app.use("/api/auth", authRouter);
+app.use("/api/task", taskRouter);
+app.use("/api", subtaskRouter);
+app.use("/api", statsRouter);
+app.use("/api/notifications", notificationRouter);
+app.use("/api/users", userRouter);
+app.use("/api/invitations", invitationRouter);
+app.use("/api/payment", paymentRouter);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {

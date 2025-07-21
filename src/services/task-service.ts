@@ -2,7 +2,7 @@
 import { ITask, TaskLabel } from "../models/task-model";
 import Task from "../models/task-model";
 import { User } from "../models/user-model";
-import SubtaskService from "./subtask-service";
+import { SubtaskService } from "./subtask-service";
 
 interface TaskFilterOptions {
   searchId?: string;
@@ -14,7 +14,11 @@ interface TaskFilterOptions {
   limit?: number;
 }
 
-class TaskService {
+export class TaskService {
+  private subtaskService: SubtaskService;
+  constructor() {
+    this.subtaskService = new SubtaskService();
+  }
   // Get all task for a specific user
   async getAllTask(userId: string): Promise<ITask[]> {
     return await Task.find({ userId })
@@ -258,10 +262,8 @@ class TaskService {
   // Delete a task for a specific user
   async deleteTask(id: string, userId: string): Promise<void> {
     // First delete all subtasks associated with this task
-    await SubtaskService.deleteSubtasksByTaskId(id, userId);
+    await this.subtaskService.deleteSubtasksByTaskId(userId, id);
     // Then delete the main task
     await Task.findOneAndDelete({ _id: id, userId });
   }
 }
-
-export default new TaskService();

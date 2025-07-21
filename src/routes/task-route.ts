@@ -1,7 +1,8 @@
 // src/routes/todoRoutes.ts
 import express from "express";
-import TaskController from "../controllers/task-controller";
-import statsRoute from "./stats-route";
+import { TaskController } from "../controllers/task-controller";
+import { TaskService } from "../services/task-service";
+import { statsRouter } from "./stats-route";
 import { authenticateToken } from "../middleware/auth-middleware";
 import {
   createTaskValidation,
@@ -11,23 +12,26 @@ import {
   handleValidationErrors
 } from "../middleware/validation-middleware";
 
-const router = express.Router();
+const taskService = new TaskService();
+const taskController = new TaskController(taskService);
+
+const taskRouter = express.Router();
 
 // Public routes (no authentication required)
-router.get("/labels", TaskController.GetLabelOptions);
+taskRouter.get("/labels", taskController.GetLabelOptions);
 
 // Protected routes (authentication required)
-router.use(authenticateToken); // Apply authentication to all routes below
+taskRouter.use(authenticateToken); // Apply authentication to all routes below
 
-router.get("/filtered", paginationValidation, handleValidationErrors, TaskController.GetFilteredTasks);
+taskRouter.get("/filtered", paginationValidation, handleValidationErrors, taskController.GetFilteredTasks);
 
 // Stats routes - MUST come before /:id route to avoid conflicts
-router.use("/stats", statsRoute);
+taskRouter.use("/stats", statsRouter);
 
-router.get("/:id", mongoIdValidation, handleValidationErrors, TaskController.GetTaskById);
-router.get("/", TaskController.GetAllTask);
-router.post("/", createTaskValidation, handleValidationErrors, TaskController.CreateNewTask);
-router.put("/:id", updateTaskValidation, handleValidationErrors, TaskController.UpdateTask);
-router.delete("/:id", mongoIdValidation, handleValidationErrors, TaskController.DeleteTask);
+taskRouter.get("/:id", mongoIdValidation, handleValidationErrors, taskController.GetTaskById);
+taskRouter.get("/", taskController.GetAllTask);
+taskRouter.post("/", createTaskValidation, handleValidationErrors, taskController.CreateNewTask);
+taskRouter.put("/:id", updateTaskValidation, handleValidationErrors, taskController.UpdateTask);
+taskRouter.delete("/:id", mongoIdValidation, handleValidationErrors, taskController.DeleteTask);
 
-export default router;  
+export { taskRouter };  

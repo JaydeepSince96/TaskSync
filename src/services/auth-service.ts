@@ -36,7 +36,7 @@ export interface RefreshTokenResponse {
 
 export class AuthService {
   // Register new user
-  static async register(userData: RegisterData): Promise<AuthResponse> {
+  async register(userData: RegisterData): Promise<AuthResponse> {
     try {
       // Check if user already exists
       const existingUser = await User.findOne({ email: userData.email });
@@ -86,7 +86,7 @@ export class AuthService {
   }
 
   // Login user
-  static async login(loginData: LoginData): Promise<AuthResponse> {
+  async login(loginData: LoginData): Promise<AuthResponse> {
     try {
       // Find user by email and include password
       const user = await User.findOne({ email: loginData.email }).select("+password");
@@ -144,7 +144,7 @@ export class AuthService {
   }
 
   // Refresh access token
-  static async refreshToken(refreshToken: string): Promise<RefreshTokenResponse> {
+  async refreshToken(refreshToken: string): Promise<RefreshTokenResponse> {
     try {
       // Verify refresh token
       const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as any;
@@ -184,7 +184,7 @@ export class AuthService {
   }
 
   // Logout user (remove refresh token)
-  static async logout(userId: string, refreshToken: string): Promise<{ success: boolean; message: string }> {
+  async logout(userId: string, refreshToken: string): Promise<{ success: boolean; message: string }> {
     try {
       const user = await User.findById(userId);
       if (!user) {
@@ -212,7 +212,7 @@ export class AuthService {
   }
 
   // Logout from all devices (remove all refresh tokens)
-  static async logoutAll(userId: string): Promise<{ success: boolean; message: string }> {
+  async logoutAll(userId: string): Promise<{ success: boolean; message: string }> {
     try {
       const user = await User.findById(userId);
       if (!user) {
@@ -240,7 +240,7 @@ export class AuthService {
   }
 
   // Google OAuth helper (to be used with passport)
-  static async googleOAuth(profile: any): Promise<AuthResponse> {
+  async googleOAuth(profile: any): Promise<AuthResponse> {
     try {
       let user = await User.findOne({ 
         $or: [
@@ -287,42 +287,6 @@ export class AuthService {
       };
     } catch (error: any) {
       console.error("Google OAuth error:", error);
-      return {
-        success: false,
-        message: "Google authentication failed"
-      };
-    }
-  }
-
-  // Google OAuth callback
-  async googleOAuth(user: IUser): Promise<AuthResponse> {
-    try {
-      // Generate tokens for the authenticated Google user
-      const { accessToken, refreshToken } = user.generateTokens();
-      
-      // Add refresh token to user's token array
-      user.refreshTokens.push(refreshToken);
-      user.lastLogin = new Date();
-      await user.save();
-
-      return {
-        success: true,
-        message: "Google authentication successful",
-        data: {
-          user: {
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            profilePicture: user.profilePicture,
-            isEmailVerified: user.isEmailVerified,
-            createdAt: user.createdAt
-          },
-          accessToken,
-          refreshToken
-        }
-      };
-    } catch (error: any) {
-      console.error('Google OAuth service error:', error);
       return {
         success: false,
         message: "Google authentication failed"

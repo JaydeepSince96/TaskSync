@@ -1,11 +1,13 @@
 // src/controllers/invitation-controller.ts
 import { Request, Response, RequestHandler } from "express";
-import InvitationService from "../services/invitation-service";
-import EmailService from "../services/email-service";
+import { InvitationService } from "../services/invitation-service";
+import { EmailService } from "../services/email-service";
 import { getUserId } from "../utils/auth-types";
 import { User } from "../models/user-model";
 
-class InvitationController {
+export class InvitationController {
+  constructor(private invitationService: InvitationService, private emailService: EmailService) {}
+
   // Send invitation to a user
   sendInvitation: RequestHandler = async (req, res) => {
     try {
@@ -50,10 +52,10 @@ class InvitationController {
       }
 
       try {
-        const { invitation } = await InvitationService.sendInvitation(userId, email.trim());
+        const { invitation } = await this.invitationService.sendInvitation(userId, email.trim());
         
         // Send invitation email
-        await EmailService.sendInvitationEmail(invitation, inviter.name);
+        await this.emailService.sendInvitationEmail(invitation, inviter.name);
 
         res.status(201).json({
           success: true,
@@ -111,7 +113,7 @@ class InvitationController {
         return;
       }
 
-      const invitations = await InvitationService.getInvitationsByUser(userId);
+      const invitations = await this.invitationService.getInvitationsByUser(userId);
 
       res.status(200).json({
         success: true,
@@ -146,7 +148,7 @@ class InvitationController {
         return;
       }
 
-      const invitedUsers = await InvitationService.getInvitedUsers(userId);
+      const invitedUsers = await this.invitationService.getInvitedUsers(userId);
 
       res.status(200).json({
         success: true,
@@ -174,7 +176,7 @@ class InvitationController {
         return;
       }
 
-      const invitation = await InvitationService.getInvitationByToken(token);
+      const invitation = await this.invitationService.getInvitationByToken(token);
 
       if (!invitation) {
         res.status(404).json({
@@ -217,7 +219,7 @@ class InvitationController {
 
       const { id } = req.params;
 
-      const invitation = await InvitationService.resendInvitation(id, userId);
+      const invitation = await this.invitationService.resendInvitation(id, userId);
 
       if (!invitation) {
         res.status(404).json({
@@ -231,7 +233,7 @@ class InvitationController {
       const inviter = await User.findById(userId);
       if (inviter) {
         // Send invitation email again
-        await EmailService.sendInvitationEmail(invitation, inviter.name);
+        await this.emailService.sendInvitationEmail(invitation, inviter.name);
       }
 
       res.status(200).json({
@@ -254,5 +256,3 @@ class InvitationController {
     }
   };
 }
-
-export default new InvitationController();

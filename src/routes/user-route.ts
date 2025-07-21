@@ -1,7 +1,11 @@
 // src/routes/user-route.ts
 import { Router } from "express";
-import UserController from "../controllers/user-controller";
+import { UserController } from "../controllers/user-controller";
+import { InvitationService } from "../services/invitation-service";
 import { authenticateToken } from "../middleware/auth-middleware";
+
+const invitationService = new InvitationService();
+const userController = new UserController(invitationService);
 
 const userRouter = Router();
 
@@ -9,9 +13,12 @@ const userRouter = Router();
 userRouter.use(authenticateToken);
 
 // Get all available users for assignment
-userRouter.get("/available", UserController.getAvailableUsers);
+userRouter.get("/available", userController.getAvailableUsers);
 
 // Search users for autocomplete
-userRouter.get("/search", UserController.searchUsers);
+userRouter.get("/search", userController.searchUsers);
 
-export default userRouter;
+// Register FCM device token for push notifications
+userRouter.post("/register-device-token", userController.registerDeviceToken);
+
+export { userRouter };

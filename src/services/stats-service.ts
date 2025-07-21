@@ -29,7 +29,7 @@ interface DateFilterOptions {
   week?: number;
 }
 
-class StatsService {
+export class StatsService {
   // Helper method to get week number
   private getWeekNumber(date: Date): number {
     const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
@@ -253,6 +253,4 @@ class StatsService {
       overallCompletionRate: 0
     };
   }
-}
-
-export default new StatsService(); 
+} 

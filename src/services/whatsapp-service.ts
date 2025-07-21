@@ -20,7 +20,7 @@ interface WeeklyReportData {
   insights: string[];
 }
 
-class WhatsAppService {
+export class WhatsAppService {
   private client: twilio.Twilio | null = null;
   private fromNumber: string;
   private isInitialized = false;
@@ -246,5 +246,3 @@ _If you received this message, your notification setup is complete._ 🎉`;
     }
   }
 }
-
-export default new WhatsAppService();

@@ -16,7 +16,7 @@ interface PlanPricingMap {
   [SubscriptionPlan.QUARTERLY]: PlanPricing;
 }
 
-class SubscriptionService {
+export class SubscriptionService {
   // Get plan pricing map
   getPlanPricing(): PlanPricingMap {
     return {
@@ -513,5 +513,3 @@ class SubscriptionService {
     }
   }
 }
-
-export default new SubscriptionService();

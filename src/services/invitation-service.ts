@@ -3,7 +3,7 @@ import Invitation, { IInvitation, InvitationStatus } from "../models/invitation-
 import { User } from "../models/user-model";
 import crypto from "crypto";
 
-class InvitationService {
+export class InvitationService {
   // Generate unique invitation token
   private generateInvitationToken(): string {
     return crypto.randomBytes(32).toString('hex');
@@ -177,5 +177,3 @@ class InvitationService {
     return invitation;
   }
 }
-
-export default new InvitationService();

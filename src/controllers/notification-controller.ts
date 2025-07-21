@@ -1,18 +1,25 @@
 // src/controllers/notification-controller.ts
 import { Request, Response, RequestHandler } from 'express';
-import notificationManager from '../services/notification-manager';
-import whatsappService from '../services/whatsapp-service';
-import emailService from '../services/email-service';
-import pushNotificationService from '../services/push-notification-service';
+import { NotificationManager } from '../services/notification-manager';
+import { WhatsAppService } from '../services/whatsapp-service';
+import { EmailService } from '../services/email-service';
+import { PushNotificationService } from '../services/push-notification-service';
 import TaskModel from '../models/task-model';
 import { User } from '../models/user-model';
 import { getUserId } from '../utils/auth-types';
 
-class NotificationController {
+export class NotificationController {
+  constructor(
+    private notificationManager: NotificationManager,
+    private whatsappService: WhatsAppService,
+    private emailService: EmailService,
+    private pushNotificationService: PushNotificationService
+  ) {}
+
   // GET /api/notifications/status - Get status of all notification services
   getServicesStatus: RequestHandler = async (req, res) => {
     try {
-      const status = notificationManager.getServicesStatus();
+      const status = this.notificationManager.getServicesStatus();
       
       res.json({
         success: true,
@@ -51,7 +58,7 @@ class NotificationController {
         deviceTokens: deviceTokens || []
       };
 
-      const results = await notificationManager.testAllServices(testData);
+      const results = await this.notificationManager.testAllServices(testData);
 
       res.json({
         success: true,
@@ -81,7 +88,7 @@ class NotificationController {
         return;
       }
 
-      const result = await whatsappService.testConnection(phoneNumber);
+      const result = await this.whatsappService.testConnection(phoneNumber);
 
       res.json({
         success: result,
@@ -115,7 +122,7 @@ class NotificationController {
       const { email } = req.body;
       const targetEmail = email || user.email;
 
-      const result = await emailService.sendTestEmail(targetEmail);
+      const result = await this.emailService.sendTestEmail(targetEmail);
 
       res.json({
         success: result,
@@ -145,7 +152,7 @@ class NotificationController {
         return;
       }
 
-      const result = await pushNotificationService.sendTestNotification(deviceTokens);
+      const result = await this.pushNotificationService.sendTestNotification(deviceTokens);
 
       res.json({
         success: result,
@@ -208,7 +215,7 @@ class NotificationController {
       const dueDate = new Date(task.dueDate);
       const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
 
-      const result = await notificationManager.sendTaskReminder({
+      const result = await this.notificationManager.sendTaskReminder({
         task,
         user,
         daysUntilDue
@@ -283,7 +290,7 @@ class NotificationController {
       // Generate insights
       const insights = this.generateWeeklyInsights(stats, weekTasks);
 
-      const result = await notificationManager.sendWeeklyReport({
+      const result = await this.notificationManager.sendWeeklyReport({
         user,
         stats,
         period: {
@@ -336,7 +343,7 @@ class NotificationController {
         return;
       }
 
-      const result = await notificationManager.sendCustomMessage(
+      const result = await this.notificationManager.sendCustomMessage(
         userId,
         title,
         message,
@@ -547,5 +554,3 @@ class NotificationController {
     return insights;
   }
 }
-
-export default NotificationController;

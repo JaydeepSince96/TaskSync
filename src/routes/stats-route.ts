@@ -1,15 +1,19 @@
 // src/routes/statsRoute.ts
 import express from "express";
-import statsController from "../controllers/stats-controller";
+import { StatsController } from "../controllers/stats-controller";
+import { StatsService } from "../services/stats-service";
 
-const router = express.Router();
+const statsService = new StatsService();
+const statsController = new StatsController(statsService);
+
+const statsRouter = express.Router();
 
 // Test route
-router.get("/test", (req, res) => {
+statsRouter.get("/test", (req, res) => {
   res.json({ message: "Stats router is working" });
 });
 
 // Stats route
-router.get("/", statsController.getTaskStats);
+statsRouter.get("/", statsController.getTaskStats);
 
-export default router; 
+export { statsRouter }; 

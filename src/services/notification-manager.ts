@@ -1,7 +1,7 @@
 // src/services/notification-manager.ts
-import whatsappService from './whatsapp-service';
-import emailService from './email-service';
-import pushNotificationService from './push-notification-service';
+import { WhatsAppService } from './whatsapp-service';
+import { EmailService } from './email-service';
+import { PushNotificationService } from './push-notification-service';
 import TaskModel from '../models/task-model';
 import { User } from '../models/user-model';
 
@@ -37,212 +37,137 @@ interface NotificationResult {
   errors: string[];
 }
 
-class NotificationManager {
+export class NotificationManager {
+  private whatsappService: WhatsAppService;
+  private emailService: EmailService;
+  private pushNotificationService: PushNotificationService;
   constructor() {
+    this.whatsappService = new WhatsAppService();
+    this.emailService = new EmailService();
+    this.pushNotificationService = new PushNotificationService();
     console.log('🔔 Notification Manager initialized');
   }
 
   // Send task reminder via all enabled channels
-  async sendTaskReminder(data: TaskReminderData, preferences?: NotificationPreferences): Promise<NotificationResult> {
+  async sendTaskReminder(data: TaskReminderData, preferences?: NotificationPreferences, deviceTokens: string[] = []): Promise<NotificationResult> {
     const { user } = data;
+    if (!deviceTokens.length && user.deviceTokens && Array.isArray(user.deviceTokens)) {
+      deviceTokens = user.deviceTokens;
+    }
     const result: NotificationResult = {
       success: false,
       sentVia: [],
       errors: []
     };
-
-    // Get user preferences if not provided
     if (!preferences) {
       preferences = await this.getUserNotificationPreferences(user._id);
     }
-
     console.log(`📨 Sending task reminder for "${data.task.title}" to ${user.email}`);
-
-    // Send WhatsApp notification
-    if (preferences.whatsapp && preferences.taskReminders && whatsappService.isAvailable()) {
+    if (preferences.whatsapp && preferences.taskReminders && this.whatsappService.isAvailable()) {
       try {
-        const sent = await whatsappService.sendTaskReminder(data);
-        if (sent) {
-          result.sentVia.push('WhatsApp');
-        } else {
-          result.errors.push('WhatsApp notification failed');
-        }
-      } catch (error) {
-        result.errors.push(`WhatsApp error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+        const sent = await this.whatsappService.sendTaskReminder(data);
+        if (sent) result.sentVia.push('WhatsApp'); else result.errors.push('WhatsApp notification failed');
+      } catch (error) { result.errors.push(`WhatsApp error: ${error instanceof Error ? error.message : 'Unknown error'}`); }
     }
-
-    // Send Email notification
-    if (preferences.email && preferences.taskReminders && emailService.isAvailable()) {
+    if (preferences.email && preferences.taskReminders && this.emailService.isAvailable()) {
       try {
-        const sent = await emailService.sendTaskReminder(data);
-        if (sent) {
-          result.sentVia.push('Email');
-        } else {
-          result.errors.push('Email notification failed');
-        }
-      } catch (error) {
-        result.errors.push(`Email error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+        const sent = await this.emailService.sendTaskReminder(data);
+        if (sent) result.sentVia.push('Email'); else result.errors.push('Email notification failed');
+      } catch (error) { result.errors.push(`Email error: ${error instanceof Error ? error.message : 'Unknown error'}`); }
     }
-
-    // Send Push notification
-    if (preferences.push && preferences.taskReminders && pushNotificationService.isAvailable()) {
+    // Pass deviceTokens to push notification service
+    if (preferences.push && preferences.taskReminders && this.pushNotificationService.isAvailable() && deviceTokens.length > 0) {
       try {
-        const sent = await pushNotificationService.sendTaskReminder(data);
-        if (sent) {
-          result.sentVia.push('Push');
-        } else {
-          result.errors.push('Push notification failed');
-        }
-      } catch (error) {
-        result.errors.push(`Push notification error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+        const sent = await this.pushNotificationService.sendTaskReminder(data, deviceTokens);
+        if (sent) result.sentVia.push('Push'); else result.errors.push('Push notification failed');
+      } catch (error) { result.errors.push(`Push notification error: ${error instanceof Error ? error.message : 'Unknown error'}`); }
     }
-
     result.success = result.sentVia.length > 0;
-    
     console.log(`✅ Task reminder sent via: ${result.sentVia.join(', ')} | Errors: ${result.errors.length}`);
     return result;
   }
 
   // Send weekly report via all enabled channels
-  async sendWeeklyReport(data: WeeklyReportData, preferences?: NotificationPreferences): Promise<NotificationResult> {
+  async sendWeeklyReport(data: WeeklyReportData, preferences?: NotificationPreferences, deviceTokens: string[] = []): Promise<NotificationResult> {
     const { user } = data;
+    if (!deviceTokens.length && user.deviceTokens && Array.isArray(user.deviceTokens)) {
+      deviceTokens = user.deviceTokens;
+    }
     const result: NotificationResult = {
       success: false,
       sentVia: [],
       errors: []
     };
-
-    // Get user preferences if not provided
     if (!preferences) {
       preferences = await this.getUserNotificationPreferences(user._id);
     }
-
     console.log(`📊 Sending weekly report for week ${data.period.weekNumber} to ${user.email}`);
-
-    // Send WhatsApp notification
-    if (preferences.whatsapp && preferences.weeklyReports && whatsappService.isAvailable()) {
+    if (preferences.whatsapp && preferences.weeklyReports && this.whatsappService.isAvailable()) {
       try {
-        const sent = await whatsappService.sendWeeklyReport(data);
-        if (sent) {
-          result.sentVia.push('WhatsApp');
-        } else {
-          result.errors.push('WhatsApp weekly report failed');
-        }
-      } catch (error) {
-        result.errors.push(`WhatsApp error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+        const sent = await this.whatsappService.sendWeeklyReport(data);
+        if (sent) result.sentVia.push('WhatsApp'); else result.errors.push('WhatsApp weekly report failed');
+      } catch (error) { result.errors.push(`WhatsApp error: ${error instanceof Error ? error.message : 'Unknown error'}`); }
     }
-
-    // Send Email notification
-    if (preferences.email && preferences.weeklyReports && emailService.isAvailable()) {
+    if (preferences.email && preferences.weeklyReports && this.emailService.isAvailable()) {
       try {
-        const sent = await emailService.sendWeeklyReport(data);
-        if (sent) {
-          result.sentVia.push('Email');
-        } else {
-          result.errors.push('Email weekly report failed');
-        }
-      } catch (error) {
-        result.errors.push(`Email error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+        const sent = await this.emailService.sendWeeklyReport(data);
+        if (sent) result.sentVia.push('Email'); else result.errors.push('Email weekly report failed');
+      } catch (error) { result.errors.push(`Email error: ${error instanceof Error ? error.message : 'Unknown error'}`); }
     }
-
-    // Send Push notification
-    if (preferences.push && preferences.weeklyReports && pushNotificationService.isAvailable()) {
+    // Pass deviceTokens to push notification service
+    if (preferences.push && preferences.weeklyReports && this.pushNotificationService.isAvailable() && deviceTokens.length > 0) {
       try {
-        const sent = await pushNotificationService.sendWeeklyReport(data);
-        if (sent) {
-          result.sentVia.push('Push');
-        } else {
-          result.errors.push('Push weekly report failed');
-        }
-      } catch (error) {
-        result.errors.push(`Push notification error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+        const sent = await this.pushNotificationService.sendWeeklyReport(data, deviceTokens);
+        if (sent) result.sentVia.push('Push'); else result.errors.push('Push weekly report failed');
+      } catch (error) { result.errors.push(`Push notification error: ${error instanceof Error ? error.message : 'Unknown error'}`); }
     }
-
     result.success = result.sentVia.length > 0;
-    
     console.log(`✅ Weekly report sent via: ${result.sentVia.join(', ')} | Errors: ${result.errors.length}`);
     return result;
   }
 
   // Send custom message via all enabled channels
   async sendCustomMessage(
-    userId: string, 
-    title: string, 
-    message: string, 
-    channels: ('whatsapp' | 'email' | 'push')[] = ['whatsapp', 'email', 'push']
+    userId: string,
+    title: string,
+    message: string,
+    channels: ('whatsapp' | 'email' | 'push')[] = ['whatsapp', 'email', 'push'],
+    deviceTokens: string[] = []
   ): Promise<NotificationResult> {
     const result: NotificationResult = {
       success: false,
       sentVia: [],
       errors: []
     };
-
     try {
       const user = await User.findById(userId);
-      if (!user) {
-        result.errors.push('User not found');
-        return result;
+      if (!user) { result.errors.push('User not found'); return result; }
+      if (!deviceTokens.length && user.deviceTokens && Array.isArray(user.deviceTokens)) {
+        deviceTokens = user.deviceTokens;
       }
-
       const preferences = await this.getUserNotificationPreferences(userId);
-
       console.log(`📝 Sending custom message "${title}" to ${user.email}`);
-
-      // Send WhatsApp notification
-      if (channels.includes('whatsapp') && preferences.whatsapp && preferences.customMessages && whatsappService.isAvailable() && user.phoneNumber) {
+      if (channels.includes('whatsapp') && preferences.whatsapp && preferences.customMessages && this.whatsappService.isAvailable() && user.phoneNumber) {
         try {
-          const sent = await whatsappService.sendCustomMessage(user.phoneNumber, `${title}\n\n${message}`);
-          if (sent) {
-            result.sentVia.push('WhatsApp');
-          } else {
-            result.errors.push('WhatsApp custom message failed');
-          }
-        } catch (error) {
-          result.errors.push(`WhatsApp error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
+          const sent = await this.whatsappService.sendCustomMessage(user.phoneNumber, `${title}\n\n${message}`);
+          if (sent) result.sentVia.push('WhatsApp'); else result.errors.push('WhatsApp custom message failed');
+        } catch (error) { result.errors.push(`WhatsApp error: ${error instanceof Error ? error.message : 'Unknown error'}`); }
       }
-
-      // Send Email notification (custom email implementation would be needed)
-      if (channels.includes('email') && preferences.email && preferences.customMessages && emailService.isAvailable()) {
+      if (channels.includes('email') && preferences.email && preferences.customMessages && this.emailService.isAvailable()) {
         try {
-          // For now, we'll use the test email method
-          const sent = await emailService.sendTestEmail(user.email);
-          if (sent) {
-            result.sentVia.push('Email');
-          } else {
-            result.errors.push('Email custom message failed');
-          }
-        } catch (error) {
-          result.errors.push(`Email error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
+          const sent = await this.emailService.sendTestEmail(user.email);
+          if (sent) result.sentVia.push('Email'); else result.errors.push('Email custom message failed');
+        } catch (error) { result.errors.push(`Email error: ${error instanceof Error ? error.message : 'Unknown error'}`); }
       }
-
-      // Send Push notification
-      if (channels.includes('push') && preferences.push && preferences.customMessages && pushNotificationService.isAvailable()) {
+      // Pass deviceTokens to push notification service
+      if (channels.includes('push') && preferences.push && preferences.customMessages && this.pushNotificationService.isAvailable() && deviceTokens.length > 0) {
         try {
-          const sent = await pushNotificationService.sendCustomNotification(userId, title, message);
-          if (sent) {
-            result.sentVia.push('Push');
-          } else {
-            result.errors.push('Push custom message failed');
-          }
-        } catch (error) {
-          result.errors.push(`Push notification error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
+          const sent = await this.pushNotificationService.sendCustomNotification(userId, title, message, {}, deviceTokens);
+          if (sent) result.sentVia.push('Push'); else result.errors.push('Push custom message failed');
+        } catch (error) { result.errors.push(`Push notification error: ${error instanceof Error ? error.message : 'Unknown error'}`); }
       }
-
       result.success = result.sentVia.length > 0;
-      
-    } catch (error) {
-      result.errors.push(`General error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-
+    } catch (error) { result.errors.push(`General error: ${error instanceof Error ? error.message : 'Unknown error'}`); }
     console.log(`✅ Custom message sent via: ${result.sentVia.join(', ')} | Errors: ${result.errors.length}`);
     return result;
   }
@@ -415,48 +340,30 @@ class NotificationManager {
       email: { available: false, testSent: false, error: null as string | null },
       push: { available: false, testSent: false, error: null as string | null }
     };
-
-    // Test WhatsApp
-    results.whatsapp.available = whatsappService.isAvailable();
+    results.whatsapp.available = this.whatsappService.isAvailable();
     if (results.whatsapp.available && testData.phoneNumber) {
-      try {
-        results.whatsapp.testSent = await whatsappService.testConnection(testData.phoneNumber);
-      } catch (error) {
-        results.whatsapp.error = error instanceof Error ? error.message : 'Unknown error';
-      }
+      try { results.whatsapp.testSent = await this.whatsappService.testConnection(testData.phoneNumber); }
+      catch (error) { results.whatsapp.error = error instanceof Error ? error.message : 'Unknown error'; }
     }
-
-    // Test Email
-    results.email.available = emailService.isAvailable();
+    results.email.available = this.emailService.isAvailable();
     if (results.email.available) {
-      try {
-        results.email.testSent = await emailService.sendTestEmail(testData.email);
-      } catch (error) {
-        results.email.error = error instanceof Error ? error.message : 'Unknown error';
-      }
+      try { results.email.testSent = await this.emailService.sendTestEmail(testData.email); }
+      catch (error) { results.email.error = error instanceof Error ? error.message : 'Unknown error'; }
     }
-
-    // Test Push Notifications
-    results.push.available = pushNotificationService.isAvailable();
+    results.push.available = this.pushNotificationService.isAvailable();
     if (results.push.available && testData.deviceTokens && testData.deviceTokens.length > 0) {
-      try {
-        results.push.testSent = await pushNotificationService.sendTestNotification(testData.deviceTokens);
-      } catch (error) {
-        results.push.error = error instanceof Error ? error.message : 'Unknown error';
-      }
+      try { results.push.testSent = await this.pushNotificationService.sendTestNotification(testData.deviceTokens); }
+      catch (error) { results.push.error = error instanceof Error ? error.message : 'Unknown error'; }
     }
-
     return results;
   }
 
   // Get status of all notification services
   getServicesStatus() {
     return {
-      whatsapp: whatsappService.getStatus(),
-      email: emailService.getStatus(),
-      push: pushNotificationService.getStatus()
+      whatsapp: this.whatsappService.getStatus(),
+      email: this.emailService.getStatus(),
+      push: this.pushNotificationService.getStatus()
     };
   }
 }
-
-export default new NotificationManager();

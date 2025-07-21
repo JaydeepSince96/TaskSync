@@ -10,6 +10,7 @@ export interface IUser extends Document {
   googleId?: string; // For Google OAuth
   isEmailVerified: boolean;
   refreshTokens: string[]; // Array to store multiple refresh tokens
+  deviceTokens: string[]; // Array to store FCM device tokens
   preferences: {
     emailNotifications: boolean;
     pushNotifications: boolean;
@@ -84,6 +85,9 @@ const UserSchema = new Schema<IUser>(
       default: false
     },
     refreshTokens: [{
+      type: String
+    }],
+    deviceTokens: [{
       type: String
     }],
     preferences: {
