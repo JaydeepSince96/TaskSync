@@ -30,7 +30,7 @@ export interface IUser extends Document {
   // Contact information for notifications
   phoneNumber?: string;
   // Subscription information
-  subscriptionStatus?: 'trial' | 'active' | 'expired' | 'cancelled';
+  subscriptionStatus?: 'trial' | 'active' | 'expired' | 'cancelled' | 'trial_expired' | 'inactive';
   subscriptionPlan?: 'trial' | 'monthly' | 'quarterly';
   subscriptionEndDate?: Date;
   trialEndDate?: Date;
@@ -149,7 +149,7 @@ const UserSchema = new Schema<IUser>(
     // Subscription information (for quick access, detailed info in Subscription collection)
     subscriptionStatus: {
       type: String,
-      enum: ['trial', 'active', 'expired', 'cancelled'],
+      enum: ['trial', 'active', 'expired', 'cancelled', 'trial_expired', 'inactive'],
       default: 'trial'
     },
     subscriptionPlan: {

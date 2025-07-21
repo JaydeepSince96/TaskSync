@@ -134,7 +134,23 @@ export class AuthController {
         res.status(404).json({ success: false, message: "User not found" });
         return;
       }
-      res.status(200).json({ success: true, message: "Profile retrieved successfully", data: { user: user.toJSON() } });
+      // Compute subscriptionStatus for the frontend
+      let subscriptionStatus: 'active' | 'trial' | 'trial_expired' | 'inactive' | 'expired' = 'inactive';
+      const now = new Date();
+      if (user.subscriptionStatus === 'active' && user.subscriptionEndDate && user.subscriptionEndDate > now) {
+        subscriptionStatus = 'active';
+      } else if (user.subscriptionStatus === 'trial' && user.trialEndDate && user.trialEndDate > now) {
+        subscriptionStatus = 'trial';
+      } else if (user.subscriptionStatus === 'trial' && user.trialEndDate && user.trialEndDate <= now) {
+        subscriptionStatus = 'trial_expired';
+      } else if (user.subscriptionStatus === 'expired' || (user.subscriptionEndDate && user.subscriptionEndDate <= now)) {
+        subscriptionStatus = 'expired';
+      } else {
+        subscriptionStatus = 'inactive';
+      }
+      const userObj = user.toJSON();
+      userObj.subscriptionStatus = subscriptionStatus;
+      res.status(200).json({ success: true, message: "Profile retrieved successfully", data: { user: userObj } });
     } catch (error: any) {
       console.error("Get profile controller error:", error);
       res.status(500).json({ success: false, message: "Internal server error" });
