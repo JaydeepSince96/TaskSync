@@ -2,6 +2,20 @@
 import nodemailer from 'nodemailer';
 import { EMAIL_HOST, EMAIL_PORT, EMAIL_SECURE, EMAIL_USER, EMAIL_PASS, EMAIL_FROM_NAME } from '../configs/env';
 
+// New environment variables for professional email services
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL;
+const SENDGRID_FROM_NAME = process.env.SENDGRID_FROM_NAME || 'TaskSync';
+
+const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY;
+const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN;
+const MAILGUN_FROM_EMAIL = process.env.MAILGUN_FROM_EMAIL;
+
+const AWS_SES_ACCESS_KEY_ID = process.env.AWS_SES_ACCESS_KEY_ID;
+const AWS_SES_SECRET_ACCESS_KEY = process.env.AWS_SES_SECRET_ACCESS_KEY;
+const AWS_SES_REGION = process.env.AWS_SES_REGION || 'us-east-1';
+const AWS_SES_FROM_EMAIL = process.env.AWS_SES_FROM_EMAIL;
+
 interface TaskReminderData {
   task: any;
   user: any;
@@ -19,37 +33,106 @@ interface WeeklyReportData {
   insights: string[];
 }
 
+type EmailProvider = 'sendgrid' | 'mailgun' | 'ses' | 'smtp' | 'none';
+
 export class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private isInitialized = false;
+  private provider: EmailProvider = 'none';
+  private fromEmail: string = '';
+  private fromName: string = 'TaskSync';
 
   constructor() {
     this.initialize();
   }
 
-  // Initialize email transporter
+  // Initialize email transporter with multiple provider support
   private initialize() {
     try {
-      if (!EMAIL_USER || !EMAIL_PASS) {
-        console.log('⚠️ Email credentials not found. Email service will be disabled.');
+      // Priority order: SendGrid > Mailgun > AWS SES > SMTP
+      if (SENDGRID_API_KEY && SENDGRID_FROM_EMAIL) {
+        this.initializeSendGrid();
+      } else if (MAILGUN_API_KEY && MAILGUN_DOMAIN && MAILGUN_FROM_EMAIL) {
+        this.initializeMailgun();
+      } else if (AWS_SES_ACCESS_KEY_ID && AWS_SES_SECRET_ACCESS_KEY && AWS_SES_FROM_EMAIL) {
+        this.initializeAWSSES();
+      } else if (EMAIL_USER && EMAIL_PASS) {
+        this.initializeSMTP();
+      } else {
+        console.log('⚠️ No email provider credentials found. Email service will be disabled.');
+        console.log('📧 Available providers: SendGrid, Mailgun, AWS SES, or SMTP');
         return;
       }
 
-      this.transporter = nodemailer.createTransport({
-        host: EMAIL_HOST,
-        port: EMAIL_PORT,
-        secure: EMAIL_SECURE, // true for 465, false for other ports
-        auth: {
-          user: EMAIL_USER,
-          pass: EMAIL_PASS,
-        },
-      });
-
       this.isInitialized = true;
-      console.log('✅ Email service initialized successfully');
+      console.log(`✅ Email service initialized successfully with ${this.provider}`);
     } catch (error) {
       console.error('❌ Failed to initialize email service:', error);
     }
+  }
+
+  private initializeSendGrid() {
+    this.provider = 'sendgrid';
+    this.fromEmail = SENDGRID_FROM_EMAIL!;
+    this.fromName = SENDGRID_FROM_NAME;
+
+    this.transporter = nodemailer.createTransport({
+      host: 'smtp.sendgrid.net',
+      port: 587,
+      secure: false,
+      auth: {
+        user: 'apikey',
+        pass: SENDGRID_API_KEY,
+      },
+    });
+  }
+
+  private initializeMailgun() {
+    this.provider = 'mailgun';
+    this.fromEmail = MAILGUN_FROM_EMAIL!;
+    this.fromName = EMAIL_FROM_NAME;
+
+    this.transporter = nodemailer.createTransport({
+      host: `smtp.mailgun.org`,
+      port: 587,
+      secure: false,
+      auth: {
+        user: `postmaster@${MAILGUN_DOMAIN}`,
+        pass: MAILGUN_API_KEY,
+      },
+    });
+  }
+
+  private initializeAWSSES() {
+    this.provider = 'ses';
+    this.fromEmail = AWS_SES_FROM_EMAIL!;
+    this.fromName = EMAIL_FROM_NAME;
+
+    this.transporter = nodemailer.createTransport({
+      host: `email-smtp.${AWS_SES_REGION}.amazonaws.com`,
+      port: 587,
+      secure: false,
+      auth: {
+        user: AWS_SES_ACCESS_KEY_ID,
+        pass: AWS_SES_SECRET_ACCESS_KEY,
+      },
+    });
+  }
+
+  private initializeSMTP() {
+    this.provider = 'smtp';
+    this.fromEmail = EMAIL_USER;
+    this.fromName = EMAIL_FROM_NAME;
+
+    this.transporter = nodemailer.createTransport({
+      host: EMAIL_HOST,
+      port: EMAIL_PORT,
+      secure: EMAIL_SECURE,
+      auth: {
+        user: EMAIL_USER,
+        pass: EMAIL_PASS,
+      },
+    });
   }
 
   // Send task reminder email
@@ -137,14 +220,14 @@ TaskSync Team
       `;
 
       await this.transporter.sendMail({
-        from: `"${EMAIL_FROM_NAME}" <${EMAIL_USER}>`,
+        from: `"${this.fromName}" <${this.fromEmail}>`,
         to: user.email,
         subject: subject,
         text: textContent,
         html: htmlContent
       });
 
-      console.log(`✅ Task reminder email sent to ${user.email}`);
+      console.log(`✅ Task reminder email sent to ${user.email} via ${this.provider}`);
       return true;
     } catch (error) {
       console.error('❌ Error sending task reminder email:', error);
@@ -245,13 +328,13 @@ TaskSync Team
       `;
 
       await this.transporter.sendMail({
-        from: `"${EMAIL_FROM_NAME}" <${EMAIL_USER}>`,
+        from: `"${this.fromName}" <${this.fromEmail}>`,
         to: user.email,
         subject: subject,
         html: htmlContent
       });
 
-      console.log(`✅ Weekly report email sent to ${user.email}`);
+      console.log(`✅ Weekly report email sent to ${user.email} via ${this.provider}`);
       return true;
     } catch (error) {
       console.error('❌ Error sending weekly report email:', error);
@@ -271,17 +354,18 @@ TaskSync Team
         <h2>📧 Email Service Test</h2>
         <p>This is a test email from your TaskSync notification system.</p>
         <p>✅ If you received this email, your email notifications are working correctly!</p>
+        <p><strong>Provider:</strong> ${this.provider}</p>
         <p><em>Test sent at: ${new Date().toLocaleString()}</em></p>
       `;
 
       await this.transporter.sendMail({
-        from: `"${EMAIL_FROM_NAME}" <${EMAIL_USER}>`,
+        from: `"${this.fromName}" <${this.fromEmail}>`,
         to: email,
         subject: '🧪 TaskSync Email Test',
         html: testMessage
       });
 
-      console.log(`✅ Test email sent to ${email}`);
+      console.log(`✅ Test email sent to ${email} via ${this.provider}`);
       return true;
     } catch (error) {
       console.error('❌ Error sending test email:', error);
@@ -309,7 +393,7 @@ TaskSync Team
     const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/signup?token=${invitation.token}`;
     
     const mailOptions = {
-      from: `${EMAIL_FROM_NAME} <${EMAIL_USER}>`,
+      from: `"${this.fromName}" <${this.fromEmail}>`,
       to: invitation.email,
       subject: `${inviterName} invited you to join TaskSync`,
       html: `
@@ -375,7 +459,7 @@ TaskSync Team
     try {
       if (this.transporter) {
         await this.transporter.sendMail(mailOptions);
-        console.log(`✅ Invitation email sent to ${invitation.email}`);
+        console.log(`✅ Invitation email sent to ${invitation.email} via ${this.provider}`);
       }
     } catch (error) {
       console.error('❌ Error sending invitation email:', error);
@@ -387,9 +471,10 @@ TaskSync Team
   getStatus() {
     return {
       isInitialized: this.isInitialized,
-      hasCredentials: !!(EMAIL_USER && EMAIL_PASS),
-      host: EMAIL_HOST,
-      port: EMAIL_PORT
+      provider: this.provider,
+      fromEmail: this.fromEmail,
+      fromName: this.fromName,
+      hasCredentials: !!(SENDGRID_API_KEY || MAILGUN_API_KEY || AWS_SES_ACCESS_KEY_ID || (EMAIL_USER && EMAIL_PASS))
     };
   }
 }

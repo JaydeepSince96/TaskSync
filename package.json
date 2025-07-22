@@ -1,11 +1,11 @@
 {
   "name": "p12-class-based-ts-crud",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
-    "start": "node dist/index.js",
+    "start": "node dist/app.js",
     "build": "tsc",
-    "dev": "nodemon src/index.ts",
+    "dev": "nodemon src/app.ts",
     "migrate": "npx ts-node src/migrations/run-migrations.ts"
   },
   "keywords": [],
