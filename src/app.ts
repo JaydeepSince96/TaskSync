@@ -25,17 +25,29 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
+      // Local development
       "http://localhost:3000",
       "http://localhost:5173",
       "http://127.0.0.1:3000",
-      "http://127.0.0.1:5173"
+      "http://127.0.0.1:5173",
+      // Production frontend domains (add your frontend domain here)
+      "https://your-frontend-domain.com",
+      "https://www.your-frontend-domain.com"
     ];
     
+    // For development and testing, allow all origins
+    // TODO: Restrict this in production
+    return callback(null, true);
+    
+    // Production CORS logic (uncomment when deploying to production)
+    /*
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     } else {
+      console.log(`CORS blocked origin: ${origin}`);
       return callback(new Error('Not allowed by CORS'), false);
     }
+    */
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: [

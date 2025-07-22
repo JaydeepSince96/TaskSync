@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
-    "start": "node dist/app.js",
+    "start": "node src/app.ts",
     "build": "tsc",
     "dev": "nodemon src/app.ts",
     "migrate": "npx ts-node src/migrations/run-migrations.ts"
