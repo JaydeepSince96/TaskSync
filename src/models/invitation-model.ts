@@ -56,7 +56,6 @@ const InvitationSchema = new Schema<IInvitation>(
 );
 
 // Compound indexes for common queries
-InvitationSchema.index({ email: 1, status: 1 }); // Find active invitations by email
 InvitationSchema.index({ invitedBy: 1, status: 1 }); // Find user's invitations by status
 InvitationSchema.index({ token: 1, status: 1, expiresAt: 1 }); // Validate invitation tokens
 

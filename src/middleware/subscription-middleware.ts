@@ -1,7 +1,9 @@
 // src/middleware/subscription-middleware.ts
 import { Request, Response, NextFunction } from 'express';
-import subscriptionService from '../services/subscription-service';
+import { SubscriptionService } from '../services/subscription-service';
 import { getUserId } from '../utils/auth-types';
+
+const subscriptionService = new SubscriptionService();
 
 export const requireActiveSubscription = async (req: Request, res: Response, next: NextFunction) => {
   try {
