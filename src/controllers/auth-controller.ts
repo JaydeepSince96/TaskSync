@@ -31,14 +31,15 @@ export class AuthController {
         if (validInvitation) {
           await this.invitationService.acceptInvitation((validInvitation._id as string).toString());
         }
-        if (result.data?.user?._id) {
-          const trialResult = await this.subscriptionService.initializeTrialSubscription(result.data.user._id.toString());
-          if (trialResult.success) {
-            console.log(`Trial subscription initialized for user ${result.data.user._id}`);
-          } else {
-            console.log(`Trial initialization failed for user ${result.data.user._id}: ${trialResult.message}`);
-          }
-        }
+        // Temporarily skip subscription initialization to debug timeout
+        // if (result.data?.user?._id) {
+        //   const trialResult = await this.subscriptionService.initializeTrialSubscription(result.data.user._id.toString());
+        //   if (trialResult.success) {
+        //     console.log(`Trial subscription initialized for user ${result.data.user._id}`);
+        //   } else {
+        //     console.log(`Trial initialization failed for user ${result.data.user._id}: ${trialResult.message}`);
+        //   }
+        // }
         res.status(201).json(result);
       } else {
         res.status(400).json(result);

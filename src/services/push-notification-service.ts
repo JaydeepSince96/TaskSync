@@ -26,14 +26,25 @@ export class PushNotificationService {
     try {
       if (!admin.apps.length) {
         const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || path.join(process.cwd(), 'firebase-service-account.json');
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccountPath),
-        });
+        
+        // Check if the service account file exists before trying to initialize
+        if (require('fs').existsSync(serviceAccountPath)) {
+          admin.initializeApp({
+            credential: admin.credential.cert(serviceAccountPath),
+          });
+          this.isInitialized = true;
+          console.log('✅ FCM push notification service initialized successfully');
+        } else {
+          console.log('⚠️ Firebase service account file not found. Push notifications will be disabled.');
+          this.isInitialized = false;
+        }
+      } else {
+        this.isInitialized = true;
+        console.log('✅ FCM push notification service already initialized');
       }
-      this.isInitialized = true;
-      console.log('✅ FCM push notification service initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize FCM push notification service:', error);
+      this.isInitialized = false;
     }
   }
 

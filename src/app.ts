@@ -30,9 +30,12 @@ const corsOptions = {
       "http://localhost:5173",
       "http://127.0.0.1:3000",
       "http://127.0.0.1:5173",
-      // Production frontend domains (add your frontend domain here)
-      "https://your-frontend-domain.com",
-      "https://www.your-frontend-domain.com"
+      // Production frontend domains
+      "https://taskSync.ap-south-1.elasticbeanstalk.com",
+      "https://tasksync.org",
+      "https://www.tasksync.org",
+      "http://tasksync.org",
+      "http://www.tasksync.org"
     ];
     
     // For development and testing, allow all origins
@@ -90,6 +93,10 @@ const apiLimiter = rateLimit({
   max: 100, // limit each IP to 100 requests per windowMs
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip rate limiting for health checks and certain endpoints
+  skip: (req) => {
+    return req.path === '/api/health' || req.path === '/api/cors-test';
+  },
   message: {
     success: false,
     message: "Too many requests from this IP, please try again later."
@@ -97,17 +104,23 @@ const apiLimiter = rateLimit({
 });
 app.use("/api/", apiLimiter);
 
-// Routes
-app.use("/api/auth", authRouter);
-app.use("/api/task", taskRouter);
-app.use("/api", subtaskRouter);
-app.use("/api", statsRouter);
-app.use("/api/notifications", notificationRouter);
-app.use("/api/users", userRouter);
-app.use("/api/invitations", invitationRouter);
-app.use("/api/payment", paymentRouter);
+// Root endpoint for custom domain
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "TaskSync API is running!",
+    version: "1.0.0",
+    timestamp: new Date().toISOString(),
+    domain: req.get('host'),
+    cors: {
+      origin: req.get('Origin'),
+      method: req.method,
+      headers: req.headers
+    }
+  });
+});
 
-// Health check endpoint
+// Health check endpoint (must be before other /api routes)
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
@@ -121,7 +134,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// CORS test endpoint
+// CORS test endpoint (must be before other /api routes)
 app.get("/api/cors-test", (req, res) => {
   res.status(200).json({
     success: true,
@@ -131,9 +144,22 @@ app.get("/api/cors-test", (req, res) => {
   });
 });
 
+// Routes
+app.use("/api/auth", authRouter);
+app.use("/api/task", taskRouter);
+app.use("/api/subtasks", subtaskRouter);
+app.use("/api/stats", statsRouter);
+app.use("/api/notifications", notificationRouter);
+app.use("/api/users", userRouter);
+app.use("/api/invitations", invitationRouter);
+app.use("/api/payment", paymentRouter);
+
 // Connect to MongoDB and start the server
 connectDB().then(() => {
   app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
   });
+}).catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 });
