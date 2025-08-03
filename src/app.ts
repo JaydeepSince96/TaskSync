@@ -1,10 +1,10 @@
-// src/index.ts
 import express from "express";
 import cors from "cors";
 import path from "path";
+import mongoose from "mongoose";
 import passport from "./configs/passport";
 import { connectDB } from "./utils/db";
-import { PORT } from "./configs/env";
+import { PORT, FRONTEND_URL } from "./configs/env";
 import { taskRouter } from "./routes/task-route";
 import { subtaskRouter } from "./routes/subtask-route";
 import { authRouter } from "./routes/auth-route";
@@ -18,85 +18,75 @@ import helmet from "helmet";
 
 const app = express();
 
-// CORS configuration
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:5173",
+  "https://taskSync.ap-south-1.elasticbeanstalk.com",
+  "https://tasksync.org",
+  "https://www.tasksync.org",
+  "http://tasksync.org",
+  "http://www.tasksync.org"
+];
+
+// Add FRONTEND_URL from environment if defined
+if (FRONTEND_URL && !allowedOrigins.includes(FRONTEND_URL)) {
+  allowedOrigins.push(FRONTEND_URL);
+}
+
 const corsOptions = {
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) return callback(null, true); // Allow curl/postman
     
-    const allowedOrigins = [
-      // Local development
-      "http://localhost:3000",
-      "http://localhost:5173",
-      "http://127.0.0.1:3000",
-      "http://127.0.0.1:5173",
-      // Production frontend domains
-      "https://taskSync.ap-south-1.elasticbeanstalk.com",
-      "https://tasksync.org",
-      "https://www.tasksync.org",
-      "http://tasksync.org",
-      "http://www.tasksync.org"
-    ];
+    // Check if we're in development mode
+    const isDevelopment = process.env.NODE_ENV !== 'production';
     
-    // For development and testing, allow all origins
-    // TODO: Restrict this in production
-    return callback(null, true);
-    
-    // Production CORS logic (uncomment when deploying to production)
-    /*
-    if (allowedOrigins.includes(origin)) {
+    if (isDevelopment) {
+      console.log(`Development mode: Allowing origin: ${origin}`);
       return callback(null, true);
-    } else {
-      console.log(`CORS blocked origin: ${origin}`);
-      return callback(new Error('Not allowed by CORS'), false);
     }
-    */
+    
+    if (allowedOrigins.includes(origin)) {
+      console.log(`Production mode: Allowing origin: ${origin}`);
+      return callback(null, true);
+    }
+    console.warn(`Production mode: Blocking origin: ${origin}`);
+    return callback(new Error("Not allowed by CORS"), false);
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type", 
-    "Authorization", 
-    "X-Requested-With",
-    "Accept",
-    "Origin"
-  ],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
   credentials: true,
-  optionsSuccessStatus: 200, // Some legacy browsers choke on 204
-  maxAge: 86400 // 24 hours
+  optionsSuccessStatus: 200,
+  maxAge: 86400
 };
 
 // Middleware
 app.use(cors(corsOptions));
-
-// Handle preflight requests explicitly
-app.options('*', cors(corsOptions));
-
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Initialize Passport
+app.options("*", cors(corsOptions)); // Preflight
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(passport.initialize());
+app.use(helmet());
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-// Request logging middleware for debugging
+// Request Logging
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - Origin: ${req.get('Origin') || 'No Origin'}`);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} — Origin: ${req.get("Origin") || "N/A"}`);
   next();
 });
 
-// Serve static files (for profile pictures)
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-
-// Security middleware
-app.use(helmet());
+// Rate Limiting - More lenient for payment operations
+// Increased limit to accommodate payment flow polling and subscription checks
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 1000, // Increased from 100 to 1000 requests per 15 minutes
   standardHeaders: true,
   legacyHeaders: false,
-  // Skip rate limiting for health checks and certain endpoints
-  skip: (req) => {
-    return req.path === '/api/health' || req.path === '/api/cors-test';
-  },
+  skip: (req) => [
+    "/api/health", 
+    "/api/cors-test"
+  ].includes(req.path),
   message: {
     success: false,
     message: "Too many requests from this IP, please try again later."
@@ -104,43 +94,57 @@ const apiLimiter = rateLimit({
 });
 app.use("/api/", apiLimiter);
 
-// Root endpoint for custom domain
+// Root
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
     message: "TaskSync API is running!",
     version: "1.0.0",
     timestamp: new Date().toISOString(),
-    domain: req.get('host'),
+    domain: req.get("host"),
     cors: {
-      origin: req.get('Origin'),
+      origin: req.get("Origin"),
       method: req.method,
       headers: req.headers
     }
   });
 });
 
-// Health check endpoint (must be before other /api routes)
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "API is healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected"
+  });
+});
+
+// Health Check
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "Server is running!",
-    timestamp: new Date().toISOString(),
-    cors: {
-      origin: req.get('Origin'),
-      method: req.method,
-      headers: req.headers
-    }
+    message: "Server is healthy",
+    timestamp: new Date().toISOString()
   });
 });
 
-// CORS test endpoint (must be before other /api routes)
+// CORS Test
 app.get("/api/cors-test", (req, res) => {
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  
   res.status(200).json({
     success: true,
     message: "CORS is working!",
-    origin: req.get('Origin'),
-    timestamp: new Date().toISOString()
+    origin: req.get("Origin"),
+    environment: process.env.NODE_ENV || 'development',
+    frontendUrl: FRONTEND_URL,
+    isDevelopment: isDevelopment,
+    corsMode: isDevelopment ? 'DEVELOPMENT' : 'RESTRICTED',
+    timestamp: new Date().toISOString(),
+    allowedOrigins
   });
 });
 
@@ -154,12 +158,14 @@ app.use("/api/users", userRouter);
 app.use("/api/invitations", invitationRouter);
 app.use("/api/payment", paymentRouter);
 
-// Connect to MongoDB and start the server
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+// Start Server
+connectDB()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running at http://localhost:${PORT}`);
+    });
+  })
+  .catch((err: any) => {
+    console.error("❌ Failed to connect to DB:", err);
+    process.exit(1);
   });
-}).catch((error) => {
-  console.error('Failed to start server:', error);
-  process.exit(1);
-});

@@ -3,6 +3,7 @@ import { ITask, TaskLabel } from "../models/task-model";
 import Task from "../models/task-model";
 import { User } from "../models/user-model";
 import { SubtaskService } from "./subtask-service";
+import { Types } from "mongoose";
 
 interface TaskFilterOptions {
   searchId?: string;
@@ -175,45 +176,68 @@ export class TaskService {
   }
 
   // Create a new task for a specific user
-  async createTask(userId: string, title: string, label: TaskLabel, startDate: Date, dueDate: Date, assignedTo?: string[]): Promise<ITask> {
-    const taskData: any = { userId, title, label, startDate, dueDate };
-    
-    // If assignedTo is provided, look up the users by email and get their ObjectIds
+  async createTask(userId: string, title: string, label: TaskLabel, startDate: Date, dueDate: Date, description?: string, assignedTo?: string[]): Promise<ITask> {
+    // Validate required fields
+    if (!title || !title.trim()) {
+      throw new Error('Task title is required');
+    }
+
+    if (!startDate || !dueDate) {
+      throw new Error('Start date and due date are required');
+    }
+
+    if (startDate > dueDate) {
+      throw new Error('Start date cannot be after due date');
+    }
+
+    // Handle assignedTo field - convert emails to ObjectIds
+    let assignedUserIds: Types.ObjectId[] = [];
     if (assignedTo && assignedTo.length > 0) {
       try {
-        const assignedUserIds = [];
-        
         for (const email of assignedTo) {
           if (email && email.trim()) {
             // Find user by email
             const assignedUser = await User.findOne({ email: email.trim() });
             if (assignedUser) {
-              assignedUserIds.push(assignedUser._id);
+              assignedUserIds.push(assignedUser._id as Types.ObjectId);
             } else {
               // If user not found, throw an error to ensure data integrity
               throw new Error(`User with email "${email.trim()}" not found`);
             }
           }
         }
-        
-        if (assignedUserIds.length > 0) {
-          taskData.assignedTo = assignedUserIds;
-        }
       } catch (error) {
         // Re-throw the error to be handled by the controller
         throw error;
       }
     }
+
+    const task = new Task({
+      title: title.trim(),
+      description: description?.trim(), // Add description field
+      label,
+      startDate,
+      dueDate,
+      userId,
+      assignedTo: assignedUserIds.length > 0 ? assignedUserIds : undefined,
+    });
+
+    const savedTask = await task.save();
     
-    const task = new Task(taskData);
-    return await (await task.save()).populate('assignedTo', 'name email profilePicture');
+    // Populate assignedTo with user details
+    const populatedTask = await Task.findById(savedTask._id).populate('assignedTo', 'name email profilePicture');
+    if (!populatedTask) {
+      throw new Error('Failed to create task');
+    }
+    return populatedTask;
   }
 
   // Update a task for a specific user
-  async updateTask(id: string, userId: string, updateData: { title?: string; completed?: boolean; label?: TaskLabel; startDate?: Date; dueDate?: Date; assignedTo?: string[] }): Promise<ITask | null> {
+  async updateTask(id: string, userId: string, updateData: { title?: string; description?: string; completed?: boolean; label?: TaskLabel; startDate?: Date; dueDate?: Date; assignedTo?: string[] }): Promise<ITask | null> {
     const filteredUpdateData: any = {};
     
     if (updateData.title !== undefined) filteredUpdateData.title = updateData.title;
+    if (updateData.description !== undefined) filteredUpdateData.description = updateData.description;
     if (updateData.completed !== undefined) filteredUpdateData.completed = updateData.completed;
     if (updateData.label !== undefined) filteredUpdateData.label = updateData.label;
     if (updateData.startDate !== undefined) filteredUpdateData.startDate = updateData.startDate;
@@ -226,14 +250,14 @@ export class TaskService {
         filteredUpdateData.assignedTo = [];
       } else {
         try {
-          const assignedUserIds = [];
+          const assignedUserIds: Types.ObjectId[] = [];
           
           for (const email of updateData.assignedTo) {
             if (email && email.trim()) {
               // Find user by email
               const assignedUser = await User.findOne({ email: email.trim() });
               if (assignedUser) {
-                assignedUserIds.push(assignedUser._id);
+                assignedUserIds.push(assignedUser._id as Types.ObjectId);
               } else {
                 // If user not found, throw an error to ensure data integrity
                 throw new Error(`User with email "${email.trim()}" not found`);

@@ -9,6 +9,7 @@ export enum TaskLabel {
 
 export interface ITask extends Document {
   title: string;
+  description?: string; // Add optional description field
   completed: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -22,6 +23,7 @@ export interface ITask extends Document {
 const TaskSchema = new Schema<ITask>(
   {
     title: { type: String, required: true },
+    description: { type: String, required: false }, // Add description field
     completed: { type: Boolean, default: false },
     label: { 
       type: String, 

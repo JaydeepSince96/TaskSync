@@ -11,12 +11,16 @@ export const authenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    console.log("Authentication middleware hit for:", req.method, req.path);
     const authHeader = req.headers.authorization;
+    console.log("Auth header present:", !!authHeader);
+    
     const token = authHeader && authHeader.startsWith("Bearer ") 
       ? authHeader.substring(7) 
       : null;
 
     if (!token) {
+      console.log("No token found in request");
       res.status(401).json({
         success: false,
         message: "Access token required"
@@ -24,18 +28,24 @@ export const authenticateToken = async (
       return;
     }
 
+    console.log("Token found, length:", token.length);
+    
     // Verify token
     const decoded = jwt.verify(token, JWT_SECRET) as any;
+    console.log("Token verified, user ID:", decoded.userId);
     
     // Check if user still exists
     const user = await User.findById(decoded.userId);
     if (!user) {
+      console.log("User not found in database:", decoded.userId);
       res.status(401).json({
         success: false,
         message: "User not found. Please login again."
       });
       return;
     }
+
+    console.log("User found:", user.email);
 
     // Add user info to request
     req.user = {
@@ -44,6 +54,7 @@ export const authenticateToken = async (
       name: decoded.name
     };
 
+    console.log("Authentication successful, proceeding to next middleware");
     next();
   } catch (error: any) {
     console.error("Authentication error:", error);

@@ -28,8 +28,9 @@ taskRouter.get("/filtered", paginationValidation, handleValidationErrors, taskCo
 // Stats routes - MUST come before /:id route to avoid conflicts
 taskRouter.use("/stats", statsRouter);
 
-taskRouter.get("/:id", mongoIdValidation, handleValidationErrors, taskController.GetTaskById);
+// IMPORTANT: Place the "/" route BEFORE "/:id" route to avoid conflicts
 taskRouter.get("/", taskController.GetAllTask);
+taskRouter.get("/:id", mongoIdValidation, handleValidationErrors, taskController.GetTaskById);
 taskRouter.post("/", createTaskValidation, handleValidationErrors, taskController.CreateNewTask);
 taskRouter.put("/:id", updateTaskValidation, handleValidationErrors, taskController.UpdateTask);
 taskRouter.delete("/:id", mongoIdValidation, handleValidationErrors, taskController.DeleteTask);

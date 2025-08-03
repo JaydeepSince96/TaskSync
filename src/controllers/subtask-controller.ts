@@ -245,9 +245,17 @@ export class SubtaskController {
 
       const result = await this.subtaskService.deleteSubtask(userId, subtaskId);
 
+      if (!result) {
+        res.status(404).json({
+          success: false,
+          message: "Subtask not found or does not belong to user"
+        });
+        return;
+      }
+
       res.status(200).json({
         success: true,
-        data: result,
+        data: { deleted: true },
         message: "Subtask deleted successfully"
       });
     } catch (error) {

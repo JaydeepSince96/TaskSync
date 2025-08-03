@@ -43,9 +43,13 @@ export class TaskController {
   // Get all task
   GetAllTask: RequestHandler = async (req, res) => {
     try {
+      console.log("GetAllTask endpoint hit");
       const userId = getUserId(req);
       
+      console.log("User ID from request:", userId);
+      
       if (!userId) {
+        console.log("No user ID found - authentication required");
         res.status(401).json({ 
           success: false, 
           message: "Authentication required" 
@@ -53,7 +57,11 @@ export class TaskController {
         return;
       }
 
+      console.log("Fetching tasks for user:", userId);
       const todos = await this.taskService.getAllTask(userId);
+      
+      console.log("Tasks fetched successfully, count:", todos?.length || 0);
+      
       if (!todos || todos.length === 0) {
         res.status(200).json({ 
           success: true, 
@@ -62,9 +70,12 @@ export class TaskController {
         });
         return;
       }
+      
       const formattedTodos = todos.map(todo => this.formatTaskResponse(todo));
+      console.log("Tasks formatted successfully");
       res.status(200).json({ success: true, data: formattedTodos });
     } catch (error) {
+      console.error("Error in GetAllTask:", error);
       res.status(500).json({
         success: false,
         message: `Error fetching todos: ${error}`,

@@ -11,9 +11,9 @@ subtaskRouter.use(authenticateToken);
 subtaskRouter.post("/tasks/:taskId/subtasks", subtaskController.createSubtask);
 subtaskRouter.get("/tasks/:taskId/subtasks", subtaskController.getSubtasksByTaskId);
 subtaskRouter.get("/tasks/:taskId/subtasks/stats", subtaskController.getSubtaskStats);
-subtaskRouter.get("/subtasks/:subtaskId", subtaskController.getSubtaskById);
-subtaskRouter.put("/subtasks/:subtaskId", subtaskController.updateSubtask);
-subtaskRouter.patch("/subtasks/:subtaskId/toggle", subtaskController.toggleSubtask);
-subtaskRouter.delete("/subtasks/:subtaskId", subtaskController.deleteSubtask);
+subtaskRouter.get("/:subtaskId", subtaskController.getSubtaskById);
+subtaskRouter.put("/:subtaskId", subtaskController.updateSubtask);
+subtaskRouter.patch("/:subtaskId/toggle", subtaskController.toggleSubtask);
+subtaskRouter.delete("/:subtaskId", subtaskController.deleteSubtask);
 
 export { subtaskRouter };
