@@ -34,5 +34,6 @@ taskRouter.get("/:id", mongoIdValidation, handleValidationErrors, taskController
 taskRouter.post("/", createTaskValidation, handleValidationErrors, taskController.CreateNewTask);
 taskRouter.put("/:id", updateTaskValidation, handleValidationErrors, taskController.UpdateTask);
 taskRouter.delete("/:id", mongoIdValidation, handleValidationErrors, taskController.DeleteTask);
+taskRouter.patch("/:id/toggle", mongoIdValidation, handleValidationErrors, taskController.ToggleTaskCompletion);
 
 export { taskRouter };  

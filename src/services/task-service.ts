@@ -290,4 +290,36 @@ export class TaskService {
     // Then delete the main task
     await Task.findOneAndDelete({ _id: id, userId });
   }
+
+  // Toggle task completion status for a specific user
+  async toggleTaskCompletion(id: string, userId: string): Promise<ITask | null> {
+    try {
+      // Find the current task
+      const currentTask = await Task.findOne({ _id: id, userId });
+      
+      if (!currentTask) {
+        return null;
+      }
+
+      // Toggle the completed status
+      const newCompletedStatus = !currentTask.completed;
+      
+      // Update the task with the new completion status
+      const updatedTask = await Task.findOneAndUpdate(
+        { _id: id, userId },
+        { completed: newCompletedStatus },
+        { new: true }
+      );
+
+      if (updatedTask) {
+        // Populate assignedTo with user details
+        return await updatedTask.populate('assignedTo', 'name email profilePicture');
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error toggling task completion:', error);
+      throw new Error('Failed to toggle task completion');
+    }
+  }
 }

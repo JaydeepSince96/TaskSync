@@ -428,4 +428,42 @@ export class TaskController {
       });
     }
   };
+
+  // Toggle task completion
+  ToggleTaskCompletion: RequestHandler = async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Authentication required" });
+        return;
+      }
+
+      const { id } = req.params;
+      
+      if (!id) {
+        res.status(400).json({ success: false, message: "Task ID is required" });
+        return;
+      }
+
+      const task = await this.taskService.toggleTaskCompletion(id, userId);
+      
+      if (!task) {
+        res.status(404).json({ success: false, message: "Task not found" });
+        return;
+      }
+
+      const formattedTask = this.formatTaskResponse(task);
+      res.status(200).json({ 
+        success: true, 
+        data: formattedTask,
+        message: "Task toggled successfully"
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to toggle task",
+      });
+    }
+  };
 }
