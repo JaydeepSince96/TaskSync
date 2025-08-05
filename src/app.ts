@@ -13,6 +13,8 @@ import { notificationRouter } from "./routes/notification-route";
 import { userRouter } from "./routes/user-route";
 import { invitationRouter } from "./routes/invitation-route";
 import { paymentRouter } from "./routes/payment-route";
+import whatsappRouter from "./routes/whatsapp-route";
+import { initializeGlobalNotificationScheduler } from "./services/notification-scheduler";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 
@@ -157,15 +159,41 @@ app.use("/api/notifications", notificationRouter);
 app.use("/api/users", userRouter);
 app.use("/api/invitations", invitationRouter);
 app.use("/api/payment", paymentRouter);
+app.use("/api/whatsapp", whatsappRouter);
+
+// Initialize notification scheduler
+let notificationScheduler: any;
 
 // Start Server
 connectDB()
   .then(() => {
+    // Initialize notification scheduler after DB connection
+    notificationScheduler = initializeGlobalNotificationScheduler();
+    
     app.listen(PORT, () => {
       console.log(`🚀 Server running at http://localhost:${PORT}`);
+      console.log(`📱 WhatsApp notifications initialized`);
+      console.log(`⏰ Daily reminders scheduled for 10am, 3pm, and 7pm`);
     });
   })
   .catch((err: any) => {
     console.error("❌ Failed to connect to DB:", err);
     process.exit(1);
   });
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('🛑 Received SIGTERM, shutting down gracefully...');
+  if (notificationScheduler) {
+    notificationScheduler.cleanup();
+  }
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 Received SIGINT, shutting down gracefully...');
+  if (notificationScheduler) {
+    notificationScheduler.cleanup();
+  }
+  process.exit(0);
+});

@@ -1,6 +1,7 @@
 // src/services/whatsapp-service.ts
 import twilio from 'twilio';
 import { IUser } from '../models/user-model';
+import { ITask } from '../models/task-model';
 import { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER } from '../configs/env';
 
 interface TaskReminderData {
@@ -20,6 +21,18 @@ interface WeeklyReportData {
   insights: string[];
 }
 
+interface TaskDeadlineData {
+  task: ITask;
+  user: IUser;
+  isDeadline: boolean; // true if startDate === dueDate
+}
+
+interface DailyReminderData {
+  user: IUser;
+  tasks: ITask[];
+  reminderTime: '10am' | '3pm' | '7pm';
+}
+
 export class WhatsAppService {
   private client: twilio.Twilio | null = null;
   private fromNumber: string;
@@ -36,6 +49,11 @@ export class WhatsAppService {
       const accountSid = TWILIO_ACCOUNT_SID;
       const authToken = TWILIO_AUTH_TOKEN;
 
+      console.log('🔧 Initializing WhatsApp service...');
+      console.log('  - Account SID:', accountSid ? `${accountSid.substring(0, 10)}...` : 'Not set');
+      console.log('  - Auth Token:', authToken ? `${authToken.substring(0, 10)}...` : 'Not set');
+      console.log('  - From Number:', this.fromNumber);
+
       if (!accountSid || !authToken) {
         console.log('⚠️ Twilio credentials not found. WhatsApp service will be disabled.');
         console.log(`Account SID: ${accountSid ? 'Set' : 'Not set'}`);
@@ -51,7 +69,132 @@ export class WhatsAppService {
     }
   }
 
-  // Send task reminder via WhatsApp
+  // Send task deadline notification (when startDate === dueDate)
+  async sendTaskDeadlineNotification(data: TaskDeadlineData): Promise<boolean> {
+    if (!this.isInitialized || !this.client) {
+      console.log('⚠️ WhatsApp service not initialized');
+      return false;
+    }
+
+    try {
+      const { task, user, isDeadline } = data;
+
+      if (!user.phoneNumber) {
+        console.log('⚠️ User has no phone number for WhatsApp');
+        return false;
+      }
+
+      const deadlineEmoji = isDeadline ? '🚨' : '📅';
+      const deadlineText = isDeadline ? 'DEADLINE TODAY' : 'Task Due Today';
+
+      const message = `${deadlineEmoji} *Task ${deadlineText}*
+
+📝 *Task:* ${task.title}
+📅 *Date:* ${new Date(task.dueDate).toLocaleDateString()}
+⏰ *Time:* ${new Date(task.dueDate).toLocaleTimeString()}
+📊 *Priority:* ${task.label || 'Normal'}
+✅ *Status:* ${task.completed ? 'Completed' : 'Pending'}
+
+${task.description ? `📄 *Description:* ${task.description}\n` : ''}
+
+${isDeadline ? 
+  '🚨 This task has the same start and due date. Complete it today!' :
+  '📌 This task is due today. Make sure to complete it!'
+}
+
+_Powered by TaskSync_ ✨`;
+
+      const result = await this.client.messages.create({
+        body: message,
+        from: this.fromNumber,
+        to: `whatsapp:${user.phoneNumber}`
+      });
+
+      console.log(`✅ WhatsApp deadline notification sent to ${user.phoneNumber}:`, result.sid);
+      return true;
+    } catch (error) {
+      console.error('❌ Error sending WhatsApp deadline notification:', error);
+      return false;
+    }
+  }
+
+  // Send daily reminder at specific times (10am, 3pm, 7pm)
+  async sendDailyReminder(data: DailyReminderData): Promise<boolean> {
+    if (!this.isInitialized || !this.client) {
+      console.log('⚠️ WhatsApp service not initialized');
+      return false;
+    }
+
+    try {
+      const { user, tasks, reminderTime } = data;
+
+      if (!user.phoneNumber) {
+        console.log('⚠️ User has no phone number for WhatsApp');
+        return false;
+      }
+
+      const timeEmoji = reminderTime === '10am' ? '🌅' : reminderTime === '3pm' ? '☀️' : '🌆';
+      const timeText = reminderTime === '10am' ? 'Morning' : reminderTime === '3pm' ? 'Afternoon' : 'Evening';
+
+      // Filter tasks based on time
+      const pendingTasks = tasks.filter(task => !task.completed);
+      const completedTasks = tasks.filter(task => task.completed);
+
+      let message = `${timeEmoji} *${timeText} Task Reminder*
+
+👋 Hello ${user.name || user.email}!
+
+📊 *Task Summary:*
+✅ Completed: ${completedTasks.length}
+⏳ Pending: ${pendingTasks.length}
+📅 Total: ${tasks.length}
+
+`;
+
+      if (pendingTasks.length > 0) {
+        message += `\n📋 *Pending Tasks:*\n`;
+        pendingTasks.slice(0, 5).forEach((task, index) => {
+          const dueDate = new Date(task.dueDate);
+          const isOverdue = dueDate < new Date();
+          const overdueEmoji = isOverdue ? '🚨' : '📅';
+          const overdueText = isOverdue ? ' (OVERDUE)' : '';
+          
+          message += `${index + 1}. ${overdueEmoji} ${task.title}${overdueText}\n`;
+          message += `   📅 Due: ${dueDate.toLocaleDateString()}\n`;
+          message += `   📊 Priority: ${task.label || 'Normal'}\n\n`;
+        });
+
+        if (pendingTasks.length > 5) {
+          message += `... and ${pendingTasks.length - 5} more tasks\n\n`;
+        }
+      }
+
+      if (completedTasks.length > 0) {
+        message += `✅ *Recently Completed:*\n`;
+        completedTasks.slice(0, 3).forEach((task, index) => {
+          message += `${index + 1}. ${task.title}\n`;
+        });
+        message += '\n';
+      }
+
+      message += `💡 *Tip:* Stay organized and tackle your tasks efficiently!\n\n`;
+      message += `_Powered by TaskSync_ ✨`;
+
+      const result = await this.client.messages.create({
+        body: message,
+        from: this.fromNumber,
+        to: `whatsapp:${user.phoneNumber}`
+      });
+
+      console.log(`✅ WhatsApp daily reminder (${reminderTime}) sent to ${user.phoneNumber}:`, result.sid);
+      return true;
+    } catch (error) {
+      console.error('❌ Error sending WhatsApp daily reminder:', error);
+      return false;
+    }
+  }
+
+  // Send task reminder via WhatsApp (existing method)
   async sendTaskReminder(data: TaskReminderData): Promise<boolean> {
     if (!this.isInitialized || !this.client) {
       console.log('⚠️ WhatsApp service not initialized');
@@ -113,35 +256,23 @@ _Powered by TaskSync_ ✨`;
         return false;
       }
 
-      const completionRate = stats.totalTasks > 0 ? 
-        Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0;
+      const message = `📊 *Weekly Task Report*
 
-      const performanceEmoji = completionRate >= 80 ? '🏆' : 
-                              completionRate >= 60 ? '👍' : 
-                              completionRate >= 40 ? '📈' : '💪';
+👋 Hello ${user.name || user.email}!
 
-      let message = `📊 *Weekly Report - Week ${period.weekNumber}*
+📅 *Period:* Week ${period.weekNumber}
+📈 *Stats:*
+• ✅ Completed: ${stats.completedTasks}
+• ⏳ Pending: ${stats.pendingTasks}
+• 📊 Total: ${stats.totalTasks}
+• 🎯 Completion Rate: ${stats.completionRate}%
 
-${performanceEmoji} *Performance Summary:*
-✅ Completed: ${stats.completedTasks}
-📝 Total Tasks: ${stats.totalTasks}
-📊 Completion Rate: ${completionRate}%
-⏱️ Overdue: ${stats.overdueTasks}
+💡 *Insights:*
+${insights.map(insight => `• ${insight}`).join('\n')}
 
-🎯 *This Week's Highlights:*`;
+🚀 Keep up the great work!
 
-      insights.slice(0, 3).forEach((insight, index) => {
-        message += `\n${index + 1}. ${insight}`;
-      });
-
-      message += `\n\n${completionRate >= 80 ? 
-        '🎉 Excellent work this week! Keep it up!' :
-        completionRate >= 60 ? 
-        '👏 Good progress! A few more tasks and you\'ll be on fire!' :
-        '💪 Room for improvement. Focus on your priorities next week!'
-      }
-
-_Your weekly insights from TaskSync_ ✨`;
+_Powered by TaskSync_ ✨`;
 
       const result = await this.client.messages.create({
         body: message,
@@ -157,7 +288,7 @@ _Your weekly insights from TaskSync_ ✨`;
     }
   }
 
-  // Send custom message
+  // Send custom message via WhatsApp
   async sendCustomMessage(phoneNumber: string, message: string): Promise<boolean> {
     if (!this.isInitialized || !this.client) {
       console.log('⚠️ WhatsApp service not initialized');
@@ -171,15 +302,15 @@ _Your weekly insights from TaskSync_ ✨`;
         to: `whatsapp:${phoneNumber}`
       });
 
-      console.log(`✅ WhatsApp message sent to ${phoneNumber}:`, result.sid);
+      console.log(`✅ Custom WhatsApp message sent to ${phoneNumber}:`, result.sid);
       return true;
     } catch (error) {
-      console.error('❌ Error sending WhatsApp message:', error);
+      console.error('❌ Error sending custom WhatsApp message:', error);
       return false;
     }
   }
 
-  // Send media message
+  // Send media message via WhatsApp
   async sendMediaMessage(phoneNumber: string, message: string, mediaUrl: string): Promise<boolean> {
     if (!this.isInitialized || !this.client) {
       console.log('⚠️ WhatsApp service not initialized');
@@ -194,10 +325,10 @@ _Your weekly insights from TaskSync_ ✨`;
         to: `whatsapp:${phoneNumber}`
       });
 
-      console.log(`✅ WhatsApp media message sent to ${phoneNumber}:`, result.sid);
+      console.log(`✅ Media WhatsApp message sent to ${phoneNumber}:`, result.sid);
       return true;
     } catch (error) {
-      console.error('❌ Error sending WhatsApp media message:', error);
+      console.error('❌ Error sending media WhatsApp message:', error);
       return false;
     }
   }
@@ -210,39 +341,12 @@ _Your weekly insights from TaskSync_ ✨`;
   // Get service status
   getStatus() {
     return {
-      isInitialized: this.isInitialized,
-      hasCredentials: !!(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN),
-      fromNumber: this.fromNumber
+      available: this.isAvailable(),
+      initialized: this.isInitialized,
+      fromNumber: this.fromNumber,
+      hasCredentials: !!(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN)
     };
   }
 
-  // Test connection
-  async testConnection(testPhoneNumber: string): Promise<boolean> {
-    if (!this.isInitialized || !this.client) {
-      console.log('⚠️ WhatsApp service not initialized');
-      return false;
-    }
-
-    try {
-      const testMessage = `🧪 *TaskSync Test Message*
-
-Hi! This is a test message from your TaskSync notification system.
-
-✅ WhatsApp notifications are working correctly!
-
-_If you received this message, your notification setup is complete._ 🎉`;
-
-      const result = await this.client.messages.create({
-        body: testMessage,
-        from: this.fromNumber,
-        to: `whatsapp:${testPhoneNumber}`
-      });
-
-      console.log(`✅ WhatsApp test message sent to ${testPhoneNumber}:`, result.sid);
-      return true;
-    } catch (error) {
-      console.error('❌ Error sending WhatsApp test message:', error);
-      return false;
-    }
-  }
+  // WhatsApp test functionality removed - not needed for production
 }

@@ -342,8 +342,9 @@ export class NotificationManager {
     };
     results.whatsapp.available = this.whatsappService.isAvailable();
     if (results.whatsapp.available && testData.phoneNumber) {
-      try { results.whatsapp.testSent = await this.whatsappService.testConnection(testData.phoneNumber); }
-      catch (error) { results.whatsapp.error = error instanceof Error ? error.message : 'Unknown error'; }
+      // WhatsApp test functionality removed - not needed for production
+      results.whatsapp.testSent = false;
+      results.whatsapp.error = 'WhatsApp test functionality removed';
     }
     results.email.available = this.emailService.isAvailable();
     if (results.email.available) {
