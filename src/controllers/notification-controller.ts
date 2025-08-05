@@ -88,7 +88,8 @@ export class NotificationController {
         return;
       }
 
-      const result = await this.whatsappService.testConnection(phoneNumber);
+      // WhatsApp test functionality removed - not needed for production
+      const result = false;
 
       res.json({
         success: result,
@@ -470,6 +471,20 @@ export class NotificationController {
   // GET /api/notifications/health - Public health check (no auth required)
   healthCheck: RequestHandler = async (req, res) => {
     try {
+      // Check for all email providers
+      const hasAWSSES = !!(process.env.AWS_SES_ACCESS_KEY_ID && process.env.AWS_SES_SECRET_ACCESS_KEY && process.env.AWS_SES_FROM_EMAIL);
+      const hasSendGrid = !!(process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL);
+      const hasMailgun = !!(process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN && process.env.MAILGUN_FROM_EMAIL);
+      const hasLegacySMTP = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+      
+      const emailConfigured = hasAWSSES || hasSendGrid || hasMailgun || hasLegacySMTP;
+      let emailProvider = 'none';
+      
+      if (hasAWSSES) emailProvider = 'aws_ses';
+      else if (hasSendGrid) emailProvider = 'sendgrid';
+      else if (hasMailgun) emailProvider = 'mailgun';
+      else if (hasLegacySMTP) emailProvider = 'smtp';
+
       const services = {
         whatsapp: {
           enabled: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
@@ -479,11 +494,16 @@ export class NotificationController {
             : 'credentials_missing'
         },
         email: {
-          enabled: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
-          configured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
-          status: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS) 
-            ? 'ready' 
-            : 'credentials_missing'
+          enabled: emailConfigured,
+          configured: emailConfigured,
+          status: emailConfigured ? 'ready' : 'credentials_missing',
+          provider: emailProvider,
+          providers: {
+            aws_ses: hasAWSSES,
+            sendgrid: hasSendGrid,
+            mailgun: hasMailgun,
+            smtp: hasLegacySMTP
+          }
         },
         push: {
           enabled: !!(process.env.ONESIGNAL_APP_ID && process.env.ONESIGNAL_API_KEY),

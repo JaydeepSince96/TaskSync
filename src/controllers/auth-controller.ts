@@ -167,7 +167,7 @@ export class AuthController {
   updateProfile = async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = getUserId(req);
-      const { name, email } = req.body;
+      const { name, email, phoneNumber } = req.body;
       if (!userId) {
         res.status(401).json({ success: false, message: "Authentication required" });
         return;
@@ -187,6 +187,17 @@ export class AuthController {
         user.isEmailVerified = false;
       }
       if (name) user.name = name;
+      if (phoneNumber) {
+        // Validate phone number format
+        if (!phoneNumber.startsWith('+')) {
+          res.status(400).json({ 
+            success: false, 
+            message: "Phone number must be in international format (e.g., +1234567890)" 
+          });
+          return;
+        }
+        user.phoneNumber = phoneNumber;
+      }
       await user.save();
       res.status(200).json({ success: true, message: "Profile updated successfully", data: { user: user.toJSON() } });
     } catch (error: any) {

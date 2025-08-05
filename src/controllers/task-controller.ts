@@ -4,6 +4,9 @@ import { TaskService } from "../services/task-service";
 import { TaskLabel } from "../models/task-model";
 import { getUserId } from "../utils/auth-types";
 import { parseDateFromDDMMYYYY, formatDateToDDMMYYYY, formatDateWithTime } from "../utils/date-utils";
+import { getGlobalNotificationScheduler } from "../services/notification-scheduler";
+import { User } from "../models/user-model";
+import { WhatsAppService } from "../services/whatsapp-service";
 
 export class TaskController {
   constructor(private taskService: TaskService) {}
@@ -22,6 +25,15 @@ export class TaskController {
       createdAt: formatDateWithTime(new Date(todo.createdAt)),
       updatedAt: formatDateWithTime(new Date(todo.updatedAt))
     };
+  }
+
+  // Helper function to check if two dates are the same day
+  private isSameDay(date1: Date, date2: Date): boolean {
+    const d1 = new Date(date1);
+    const d2 = new Date(date2);
+    return d1.getFullYear() === d2.getFullYear() &&
+           d1.getMonth() === d2.getMonth() &&
+           d1.getDate() === d2.getDate();
   }
 
   // Get available label options
@@ -259,6 +271,41 @@ export class TaskController {
       }
 
       const task = await this.taskService.createTask(userId, title, label, parsedStartDate, parsedDueDate, assignedTo);
+
+      // Schedule notifications for the new task
+      try {
+        const notificationScheduler = getGlobalNotificationScheduler();
+        if (notificationScheduler) {
+          // Check if this is a deadline task (same start and due date)
+          const isDeadline = this.isSameDay(parsedStartDate, parsedDueDate);
+          
+          if (isDeadline) {
+            // For deadline tasks, send immediate notification
+            console.log(`📅 Sending immediate deadline notification for task ${task._id}`);
+            
+            // Get the user to send notification to
+            const user = await User.findById(userId);
+            if (user && user.phoneNumber) {
+              // Send immediate deadline notification
+              const whatsappService = new WhatsAppService();
+              await whatsappService.sendTaskDeadlineNotification({
+                task,
+                user,
+                isDeadline: true
+              });
+              console.log(`✅ Immediate deadline notification sent to ${user.phoneNumber}`);
+            } else {
+              console.log('⚠️ User has no phone number for WhatsApp notifications');
+            }
+          } else {
+            // For regular tasks, schedule deadline notification
+            console.log(`📅 Task ${task._id} will be checked for deadline notifications`);
+          }
+        }
+      } catch (notificationError) {
+        console.error('⚠️ Error scheduling notifications for new task:', notificationError);
+        // Don't fail the task creation if notification scheduling fails
+      }
 
       res.status(201).json({
         success: true,
