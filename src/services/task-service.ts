@@ -294,15 +294,36 @@ export class TaskService {
   // Toggle task completion status for a specific user
   async toggleTaskCompletion(id: string, userId: string): Promise<ITask | null> {
     try {
+      console.log(`🎯 Backend: toggleTaskCompletion called for task ${id}, user ${userId}`);
+      
       // Find the current task
       const currentTask = await Task.findOne({ _id: id, userId });
       
       if (!currentTask) {
+        console.log(`🎯 Backend: Task ${id} not found`);
         return null;
+      }
+
+      console.log(`🎯 Backend: Current task completion status: ${currentTask.completed}`);
+
+      // If trying to mark task as complete, check if all subtasks are completed
+      if (!currentTask.completed) {
+        console.log(`🎯 Backend: Attempting to mark task as complete, checking subtasks...`);
+        const subtaskStats = await this.subtaskService.getSubtaskStats(userId, id);
+        
+        console.log(`🎯 Backend: Subtask stats - total: ${subtaskStats.total}, completed: ${subtaskStats.completed}`);
+        
+        // If there are subtasks and not all are completed, prevent completion
+        if (subtaskStats.total > 0 && subtaskStats.completed < subtaskStats.total) {
+          throw new Error(`Cannot mark task as done! You must complete all ${subtaskStats.total} subtasks first. Currently ${subtaskStats.completed}/${subtaskStats.total} completed.`);
+        }
+      } else {
+        console.log(`🎯 Backend: Marking completed task as pending (incomplete)`);
       }
 
       // Toggle the completed status
       const newCompletedStatus = !currentTask.completed;
+      console.log(`🎯 Backend: New completion status will be: ${newCompletedStatus}`);
       
       // Update the task with the new completion status
       const updatedTask = await Task.findOneAndUpdate(
@@ -312,14 +333,16 @@ export class TaskService {
       );
 
       if (updatedTask) {
+        console.log(`🎯 Backend: Task updated successfully, new status: ${updatedTask.completed}`);
         // Populate assignedTo with user details
         return await updatedTask.populate('assignedTo', 'name email profilePicture');
       }
       
+      console.log(`🎯 Backend: Failed to update task`);
       return null;
     } catch (error) {
       console.error('Error toggling task completion:', error);
-      throw new Error('Failed to toggle task completion');
+      throw error; // Re-throw the error to preserve the specific error message
     }
   }
 }
