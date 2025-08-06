@@ -1,6 +1,5 @@
 // src/services/subtask-service.ts
-import { ISubtask } from "../models/subtask-model";
-import Subtask from "../models/subtask-model";
+import Subtask, { ISubtask } from "../models/subtask-model";
 import Task from "../models/task-model";
 
 interface SubtaskStats {
@@ -11,6 +10,37 @@ interface SubtaskStats {
 }
 
 export class SubtaskService {
+  // Helper method to automatically manage task completion based on subtasks
+  private async autoManageTaskCompletion(userId: string, taskId: string): Promise<void> {
+    try {
+      const task = await Task.findOne({ _id: taskId, userId });
+      if (!task) return;
+
+      const subtasks = await Subtask.find({ userId, taskId });
+      const total = subtasks.length;
+      const completed = subtasks.filter((st: ISubtask) => st.completed).length;
+
+      // If there are subtasks
+      if (total > 0) {
+        const shouldBeCompleted = completed === total;
+        const shouldBeIncomplete = completed < total;
+
+        // Update task completion status if needed
+        if (shouldBeCompleted && !task.completed) {
+          task.completed = true;
+          await task.save();
+          console.log(`🎯 Auto-completed task ${taskId} due to all subtasks completed`);
+        } else if (shouldBeIncomplete && task.completed) {
+          task.completed = false;
+          await task.save();
+          console.log(`🎯 Auto-marked task ${taskId} as incomplete due to incomplete subtasks`);
+        }
+      }
+    } catch (error) {
+      console.error('Error in auto task completion management:', error);
+    }
+  }
+
   // Create a new subtask for a specific user
   async createSubtask(
     userId: string, 
@@ -36,7 +66,16 @@ export class SubtaskService {
       endDate
     });
 
-    return await subtask.save();
+    const savedSubtask = await subtask.save();
+
+    // If the task was completed and we're adding a new subtask, mark task as pending
+    if (task.completed) {
+      task.completed = false;
+      await task.save();
+      console.log(`🎯 Task ${taskId} marked as pending due to new subtask addition`);
+    }
+
+    return savedSubtask;
   }
 
   // Get all subtasks for a specific task and user
@@ -61,11 +100,18 @@ export class SubtaskService {
     description?: string;
     completed?: boolean;
   }): Promise<ISubtask | null> {
-    return await Subtask.findOneAndUpdate(
+    const updatedSubtask = await Subtask.findOneAndUpdate(
       { _id: subtaskId, userId },
       updateData,
       { new: true }
     );
+
+    if (updatedSubtask && updateData.completed !== undefined) {
+      // Auto-manage task completion when subtask completion status changes
+      await this.autoManageTaskCompletion(userId, updatedSubtask.taskId.toString());
+    }
+
+    return updatedSubtask;
   }
 
   // Toggle subtask completion status for a specific user
@@ -76,7 +122,12 @@ export class SubtaskService {
     }
 
     subtask.completed = !subtask.completed;
-    return await subtask.save();
+    const updatedSubtask = await subtask.save();
+
+    // Auto-manage task completion when subtask is toggled
+    await this.autoManageTaskCompletion(userId, subtask.taskId.toString());
+
+    return updatedSubtask;
   }
 
   // Delete a subtask for a specific user
@@ -95,7 +146,7 @@ export class SubtaskService {
 
     const subtasks = await Subtask.find({ userId, taskId });
     const total = subtasks.length;
-    const completed = subtasks.filter(subtask => subtask.completed).length;
+    const completed = subtasks.filter((subtask: ISubtask) => subtask.completed).length;
     const pending = total - completed;
     const completionRate = total > 0 ? (completed / total) * 100 : 0;
 
@@ -107,49 +158,44 @@ export class SubtaskService {
     };
   }
 
-  // Get all subtasks for a specific user across all tasks
+  // Get all subtasks for a specific user
   async getAllSubtasksForUser(userId: string): Promise<ISubtask[]> {
     return await Subtask.find({ userId }).sort({ createdAt: -1 });
   }
 
-  // Get subtasks for multiple tasks for a specific user
+  // Get subtasks for multiple tasks
   async getSubtasksForTasks(userId: string, taskIds: string[]): Promise<ISubtask[]> {
     return await Subtask.find({ 
-      userId,
+      userId, 
       taskId: { $in: taskIds } 
     }).sort({ createdAt: 1 });
   }
 
-  // Bulk update subtasks for a specific user
+  // Bulk update subtasks
   async bulkUpdateSubtasks(userId: string, subtaskIds: string[], updateData: {
     completed?: boolean;
     description?: string;
   }): Promise<number> {
     const result = await Subtask.updateMany(
-      { 
-        _id: { $in: subtaskIds },
-        userId 
-      },
+      { _id: { $in: subtaskIds }, userId },
       updateData
     );
     return result.modifiedCount;
   }
 
-  // Delete all subtasks for a specific task and user
+  // Delete all subtasks for a specific task
   async deleteSubtasksByTaskId(userId: string, taskId: string): Promise<number> {
     const result = await Subtask.deleteMany({ userId, taskId });
     return result.deletedCount;
   }
 
-  // Get subtask completion rate for a user across all tasks
+  // Get user's overall subtask completion rate
   async getUserSubtaskCompletionRate(userId: string): Promise<number> {
     const subtasks = await Subtask.find({ userId });
     const total = subtasks.length;
+    const completed = subtasks.filter((subtask: ISubtask) => subtask.completed).length;
     
-    if (total === 0) return 0;
-    
-    const completed = subtasks.filter(subtask => subtask.completed).length;
-    return Math.round((completed / total) * 100 * 100) / 100; // Round to 2 decimal places
+    return total > 0 ? (completed / total) * 100 : 0;
   }
 
   // Get recent subtasks for a user (last 10)
