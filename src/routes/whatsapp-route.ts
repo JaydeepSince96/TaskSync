@@ -20,6 +20,27 @@ router.post('/deadline-notification', authenticateToken, whatsappController.send
 // Send daily reminder manually
 router.post('/daily-reminder', authenticateToken, whatsappController.sendDailyReminder);
 
+// Manually trigger daily reminder for testing
+router.post('/trigger-daily-reminder', authenticateToken, whatsappController.triggerDailyReminder);
+
+// Manually trigger daily reminders for all users
+router.post('/trigger-daily-reminders-all', authenticateToken, whatsappController.triggerDailyRemindersForAll);
+
+// Get all users with phone numbers for debugging
+router.get('/users-with-phone', authenticateToken, whatsappController.getUsersWithPhoneNumbers);
+
+// Comprehensive debugging endpoint
+router.get('/debug/:userId?', authenticateToken, whatsappController.debugWhatsAppSystem);
+
+// Troubleshoot notification issues for a specific user
+router.get('/troubleshoot/:userId', authenticateToken, whatsappController.troubleshootNotifications);
+
+// Clear notification records for testing
+router.post('/clear-notification-records', authenticateToken, whatsappController.clearNotificationRecords);
+
+// Get notification tracking status
+router.get('/notification-tracking-status', authenticateToken, whatsappController.getNotificationTrackingStatus);
+
 // Get notification schedule for a user
 router.get('/schedule/:userId', authenticateToken, whatsappController.getNotificationSchedule);
 
