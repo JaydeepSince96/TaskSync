@@ -19,6 +19,7 @@ export class NotificationScheduler {
   private whatsappService: WhatsAppService;
   private emailService: EmailService;
   private schedules: Map<string, NodeJS.Timeout> = new Map();
+  private sentNotifications: Map<string, Set<string>> = new Map(); // Track sent notifications by date and taskId
 
   constructor() {
     this.whatsappService = new WhatsAppService();
@@ -88,9 +89,24 @@ export class NotificationScheduler {
       console.log(`📱 Sending daily reminders (${time}) to all users...`);
 
       const users = await User.find({ phoneNumber: { $exists: true, $ne: '' } });
+      console.log(`🔍 Found ${users.length} users with phone numbers`);
+      
+      let successCount = 0;
+      let errorCount = 0;
+      let skippedCount = 0;
       
       for (const user of users) {
         try {
+          console.log(`📱 Processing user: ${user.email} (${user.phoneNumber})`);
+          
+          // Check if daily reminder already sent today for this user
+          const userId = (user._id as any).toString();
+          if (this.hasNotificationBeenSent('daily-reminder', userId, `daily-${time}`)) {
+            console.log(`⏭️ Daily reminder (${time}) already sent today to ${user.email}`);
+            skippedCount++;
+            continue;
+          }
+          
           // Get user's tasks
           const tasks = await Task.find({
             $or: [
@@ -99,19 +115,34 @@ export class NotificationScheduler {
             ]
           }).sort({ dueDate: 1 });
 
+          console.log(`📋 User ${user.email} has ${tasks.length} tasks (${tasks.filter(t => !t.completed).length} pending, ${tasks.filter(t => t.completed).length} completed)`);
+
           if (tasks.length > 0) {
-            await this.whatsappService.sendDailyReminder({
+            const result = await this.whatsappService.sendDailyReminder({
               user,
               tasks,
               reminderTime: time
             });
+            
+            if (result) {
+              this.markNotificationAsSent('daily-reminder', userId, `daily-${time}`);
+              successCount++;
+              console.log(`✅ Daily reminder (${time}) sent successfully to ${user.email}`);
+            } else {
+              errorCount++;
+              console.log(`❌ Failed to send daily reminder (${time}) to ${user.email}`);
+            }
+          } else {
+            console.log(`⚠️ User ${user.email} has no tasks, skipping daily reminder`);
+            skippedCount++;
           }
         } catch (error) {
-          console.error(`❌ Error sending daily reminder to user ${user._id}:`, error);
+          errorCount++;
+          console.error(`❌ Error sending daily reminder to user ${user._id} (${user.email}):`, error);
         }
       }
 
-      console.log(`✅ Daily reminders (${time}) sent to ${users.length} users`);
+      console.log(`✅ Daily reminders (${time}) completed: ${successCount} successful, ${errorCount} failed, ${skippedCount} skipped`);
     } catch (error) {
       console.error('❌ Error in sendDailyRemindersToAllUsers:', error);
     }
@@ -138,6 +169,9 @@ export class NotificationScheduler {
     try {
       console.log('🔍 Checking for deadline notifications...');
 
+      // Clean up old notification records
+      this.cleanupOldNotificationRecords();
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
@@ -152,37 +186,65 @@ export class NotificationScheduler {
         completed: false
       }).populate('userId assignedTo');
 
+      let notificationsSent = 0;
+      let notificationsSkipped = 0;
+
       for (const task of tasksDueToday) {
         try {
           const isDeadline = this.isSameDay(task.startDate, task.dueDate);
           
-                     // Send to task creator
-           if (task.userId && typeof task.userId === 'object' && 'phoneNumber' in task.userId) {
-             await this.whatsappService.sendTaskDeadlineNotification({
-               task,
-               user: task.userId as unknown as IUser,
-               isDeadline
-             });
-           }
+          // Only send notifications for deadline tasks (same start and due date)
+          if (isDeadline) {
+            // Send to task creator
+            if (task.userId && typeof task.userId === 'object' && 'phoneNumber' in task.userId) {
+              const userId = (task.userId as any)._id.toString();
+              const taskId = (task._id as any).toString();
+              
+              if (!this.hasNotificationBeenSent(taskId, userId, 'deadline')) {
+                await this.whatsappService.sendTaskDeadlineNotification({
+                  task,
+                  user: task.userId as unknown as IUser,
+                  isDeadline
+                });
+                this.markNotificationAsSent(taskId, userId, 'deadline');
+                notificationsSent++;
+                console.log(`✅ Deadline notification sent to task creator for task ${taskId}`);
+              } else {
+                console.log(`⏭️ Deadline notification already sent today to task creator for task ${taskId}`);
+                notificationsSkipped++;
+              }
+            }
 
-           // Send to assigned users
-           if (task.assignedTo && Array.isArray(task.assignedTo)) {
-             for (const assignedUser of task.assignedTo) {
-               if (assignedUser && typeof assignedUser === 'object' && 'phoneNumber' in assignedUser) {
-                 await this.whatsappService.sendTaskDeadlineNotification({
-                   task,
-                   user: assignedUser as unknown as IUser,
-                   isDeadline
-                 });
-               }
-             }
-           }
+            // Send to assigned users
+            if (task.assignedTo && Array.isArray(task.assignedTo)) {
+              for (const assignedUser of task.assignedTo) {
+                if (assignedUser && typeof assignedUser === 'object' && 'phoneNumber' in assignedUser) {
+                  const userId = (assignedUser as any)._id.toString();
+                  const taskId = (task._id as any).toString();
+                  
+                  if (!this.hasNotificationBeenSent(taskId, userId, 'deadline')) {
+                    await this.whatsappService.sendTaskDeadlineNotification({
+                      task,
+                      user: assignedUser as unknown as IUser,
+                      isDeadline
+                    });
+                    this.markNotificationAsSent(taskId, userId, 'deadline');
+                    notificationsSent++;
+                    console.log(`✅ Deadline notification sent to assigned user for task ${taskId}`);
+                  } else {
+                    console.log(`⏭️ Deadline notification already sent today to assigned user for task ${taskId}`);
+                    notificationsSkipped++;
+                  }
+                }
+              }
+            }
+          }
         } catch (error) {
           console.error(`❌ Error sending deadline notification for task ${task._id}:`, error);
         }
       }
 
-      console.log(`✅ Deadline notifications sent for ${tasksDueToday.length} tasks`);
+      console.log(`✅ Deadline notifications completed: ${notificationsSent} sent, ${notificationsSkipped} skipped`);
     } catch (error) {
       console.error('❌ Error in checkAndSendDeadlineNotifications:', error);
     }
@@ -277,6 +339,53 @@ export class NotificationScheduler {
     }
   }
 
+  // Get next reminder times for debugging
+  private getNextReminderTimes() {
+    const now = new Date();
+    const reminderTimes = [
+      { time: '10am', hour: 10, minute: 0 },
+      { time: '3pm', hour: 15, minute: 0 },
+      { time: '7pm', hour: 19, minute: 0 }
+    ];
+
+    return reminderTimes.map(({ time, hour, minute }) => {
+      const nextReminder = new Date();
+      nextReminder.setHours(hour, minute, 0, 0);
+
+      // If time has passed today, schedule for tomorrow
+      if (nextReminder <= now) {
+        nextReminder.setDate(nextReminder.getDate() + 1);
+      }
+
+      return {
+        time,
+        nextOccurrence: nextReminder.toISOString(),
+        timeUntilNext: nextReminder.getTime() - now.getTime()
+      };
+    });
+  }
+
+  // Manually clear notification records for testing
+  public clearNotificationRecords(): void {
+    this.sentNotifications.clear();
+    console.log('🧹 All notification records cleared for testing');
+  }
+
+  // Get notification tracking status
+  public getNotificationTrackingStatus(): any {
+    const status: any = {};
+    for (const [dateKey, notifications] of this.sentNotifications) {
+      status[dateKey] = Array.from(notifications);
+    }
+    return status;
+  }
+
+  // Manually trigger daily reminders for testing
+  public async triggerDailyReminders(time: '10am' | '3pm' | '7pm') {
+    console.log(`🔧 Manually triggering daily reminders for ${time}...`);
+    await this.sendDailyRemindersToAllUsers(time);
+  }
+
   // Get scheduler status
   public getStatus() {
     return {
@@ -293,6 +402,48 @@ export class NotificationScheduler {
     });
     this.schedules.clear();
     console.log('🧹 Notification scheduler cleaned up');
+  }
+
+  // Check if a notification has already been sent today
+  private hasNotificationBeenSent(taskId: string, userId: string, type: string): boolean {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const key = `${today}-${type}`;
+    const notificationKey = `${taskId}-${userId}`;
+    
+    if (!this.sentNotifications.has(key)) {
+      this.sentNotifications.set(key, new Set());
+      return false;
+    }
+    
+    return this.sentNotifications.get(key)!.has(notificationKey);
+  }
+
+  // Mark a notification as sent
+  private markNotificationAsSent(taskId: string, userId: string, type: string): void {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const key = `${today}-${type}`;
+    const notificationKey = `${taskId}-${userId}`;
+    
+    if (!this.sentNotifications.has(key)) {
+      this.sentNotifications.set(key, new Set());
+    }
+    
+    this.sentNotifications.get(key)!.add(notificationKey);
+    console.log(`📝 Marked ${type} notification as sent for task ${taskId}, user ${userId}`);
+  }
+
+  // Clear old notification records (older than 7 days)
+  private cleanupOldNotificationRecords(): void {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    for (const [dateKey] of this.sentNotifications) {
+      const date = new Date(dateKey);
+      if (date < sevenDaysAgo) {
+        this.sentNotifications.delete(dateKey);
+        console.log(`🧹 Cleaned up old notification records for ${dateKey}`);
+      }
+    }
   }
 } 
 
