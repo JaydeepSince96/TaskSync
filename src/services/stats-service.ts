@@ -1,7 +1,8 @@
 // src/services/StatsService.ts
 import { TaskLabel } from "../models/task-model";
-import Task from "../models/task-model";
+import Task, { ITask } from "../models/task-model";
 import { Types } from "mongoose";
+import { SubtaskService } from "./subtask-service";
 
 interface TaskStats {
   label: string;
@@ -30,6 +31,8 @@ interface DateFilterOptions {
 }
 
 export class StatsService {
+  constructor(private subtaskService: SubtaskService) {}
+
   // Helper method to get week number
   private getWeekNumber(date: Date): number {
     const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
@@ -251,6 +254,104 @@ export class StatsService {
       pendingTasks: 0,
       overdueTasks: 0,
       overallCompletionRate: 0
+    };
+  }
+
+  // Get subtask statistics by date range for productivity analytics
+  async getSubtaskStatsByDateRange(
+    userId: string, 
+    startDate: Date, 
+    endDate: Date
+  ): Promise<{ completed: number; total: number }> {
+    return await this.subtaskService.getSubtaskStatsByDateRange(userId, startDate, endDate);
+  }
+
+  // Get historical trend data for dashboard analytics
+  async getHistoricalTrends(userId: string, period: 'week' | 'month' | 'year' = 'week'): Promise<{
+    totalTasks: { current: number; previous: number; change: number };
+    completedTasks: { current: number; previous: number; change: number };
+    pendingTasks: { current: number; previous: number; change: number };
+    overdueTasks: { current: number; previous: number; change: number };
+  }> {
+    const now = new Date();
+    let currentStart: Date, currentEnd: Date, previousStart: Date, previousEnd: Date;
+
+    if (period === 'week') {
+      // Current week (Monday to Sunday)
+      const dayOfWeek = now.getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      currentStart = new Date(now);
+      currentStart.setDate(now.getDate() - daysToMonday);
+      currentStart.setHours(0, 0, 0, 0);
+      
+      currentEnd = new Date(currentStart);
+      currentEnd.setDate(currentStart.getDate() + 6);
+      currentEnd.setHours(23, 59, 59, 999);
+
+      // Previous week
+      previousStart = new Date(currentStart);
+      previousStart.setDate(currentStart.getDate() - 7);
+      previousEnd = new Date(currentEnd);
+      previousEnd.setDate(currentEnd.getDate() - 7);
+    } else if (period === 'month') {
+      // Current month
+      currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      currentEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+      // Previous month
+      previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      previousEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    } else {
+      // Current year
+      currentStart = new Date(now.getFullYear(), 0, 1);
+      currentEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+
+      // Previous year
+      previousStart = new Date(now.getFullYear() - 1, 0, 1);
+      previousEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+    }
+
+    // Get stats for current and previous periods
+    const [currentStats, previousStats] = await Promise.all([
+      this.getOverallStats(userId, {
+        period: 'custom',
+        startDate: currentStart.toISOString(),
+        endDate: currentEnd.toISOString()
+      }),
+      this.getOverallStats(userId, {
+        period: 'custom',
+        startDate: previousStart.toISOString(),
+        endDate: previousEnd.toISOString()
+      })
+    ]);
+
+    // Calculate percentage changes
+    const calculateChange = (current: number, previous: number): number => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return Math.round(((current - previous) / previous) * 100);
+    };
+
+    return {
+      totalTasks: {
+        current: currentStats.totalTasks,
+        previous: previousStats.totalTasks,
+        change: calculateChange(currentStats.totalTasks, previousStats.totalTasks)
+      },
+      completedTasks: {
+        current: currentStats.completedTasks,
+        previous: previousStats.completedTasks,
+        change: calculateChange(currentStats.completedTasks, previousStats.completedTasks)
+      },
+      pendingTasks: {
+        current: currentStats.pendingTasks,
+        previous: previousStats.pendingTasks,
+        change: calculateChange(currentStats.pendingTasks, previousStats.pendingTasks)
+      },
+      overdueTasks: {
+        current: currentStats.overdueTasks,
+        previous: previousStats.overdueTasks,
+        change: calculateChange(currentStats.overdueTasks, previousStats.overdueTasks)
+      }
     };
   }
 } 

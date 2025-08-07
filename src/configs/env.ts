@@ -57,6 +57,12 @@ export const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || "wha
 export const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || "";
 export const ONESIGNAL_API_KEY = process.env.ONESIGNAL_API_KEY || "";
 
+// Firebase Cloud Messaging (FCM) Configuration
+export const FIREBASE_SERVICE_ACCOUNT_PATH = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || "./firebase-service-account.json";
+export const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "";
+export const FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY || "";
+export const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || "";
+
 // Razorpay Configuration
 export const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || "";
 export const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || "";

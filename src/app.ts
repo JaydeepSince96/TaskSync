@@ -14,7 +14,9 @@ import { userRouter } from "./routes/user-route";
 import { invitationRouter } from "./routes/invitation-route";
 import { paymentRouter } from "./routes/payment-route";
 import whatsappRouter from "./routes/whatsapp-route";
+import taskReminderRouter from "./routes/task-reminder-route";
 import { initializeGlobalNotificationScheduler } from "./services/notification-scheduler";
+import { initializeGlobalTaskReminderScheduler } from "./services/task-reminder-scheduler";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 
@@ -160,20 +162,25 @@ app.use("/api/users", userRouter);
 app.use("/api/invitations", invitationRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/whatsapp", whatsappRouter);
+app.use("/api/task-reminders", taskReminderRouter);
 
-// Initialize notification scheduler
+// Initialize notification schedulers
 let notificationScheduler: any;
+let taskReminderScheduler: any;
 
 // Start Server
 connectDB()
   .then(() => {
-    // Initialize notification scheduler after DB connection
+    // Initialize notification schedulers after DB connection
     notificationScheduler = initializeGlobalNotificationScheduler();
+    taskReminderScheduler = initializeGlobalTaskReminderScheduler();
     
     app.listen(PORT, () => {
       console.log(`🚀 Server running at http://localhost:${PORT}`);
       console.log(`📱 WhatsApp notifications initialized`);
       console.log(`⏰ Daily reminders scheduled for 10am, 3pm, and 7pm`);
+      console.log(`🌅 Task reminders scheduled for 8am and 5pm`);
+      console.log(`🔍 Overdue task checks every hour`);
     });
   })
   .catch((err: any) => {
@@ -187,6 +194,10 @@ process.on('SIGTERM', () => {
   if (notificationScheduler) {
     notificationScheduler.cleanup();
   }
+  if (taskReminderScheduler) {
+    // Clean up task reminder scheduler if needed
+    console.log('🧹 Cleaning up task reminder scheduler...');
+  }
   process.exit(0);
 });
 
@@ -194,6 +205,10 @@ process.on('SIGINT', () => {
   console.log('🛑 Received SIGINT, shutting down gracefully...');
   if (notificationScheduler) {
     notificationScheduler.cleanup();
+  }
+  if (taskReminderScheduler) {
+    // Clean up task reminder scheduler if needed
+    console.log('🧹 Cleaning up task reminder scheduler...');
   }
   process.exit(0);
 });

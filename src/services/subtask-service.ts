@@ -230,6 +230,44 @@ export class SubtaskService {
     return await Subtask.countDocuments(query);
   }
 
+  // Get subtask statistics by date range for productivity analytics
+  async getSubtaskStatsByDateRange(
+    userId: string, 
+    startDate: Date, 
+    endDate: Date
+  ): Promise<{ completed: number; total: number }> {
+    // Query for subtasks that were either created or updated during the date range
+    const baseQuery = {
+      userId,
+      $or: [
+        // Subtasks created during the date range
+        {
+          createdAt: {
+            $gte: startDate,
+            $lte: endDate
+          }
+        },
+        // Subtasks updated during the date range (for completion status changes)
+        {
+          updatedAt: {
+            $gte: startDate,
+            $lte: endDate
+          }
+        }
+      ]
+    };
+
+    const [totalSubtasks, completedSubtasks] = await Promise.all([
+      Subtask.countDocuments(baseQuery),
+      Subtask.countDocuments({ ...baseQuery, completed: true })
+    ]);
+
+    return {
+      completed: completedSubtasks,
+      total: totalSubtasks
+    };
+  }
+
   // Get subtasks with pagination for a specific user
   async getSubtasksWithPagination(userId: string, options: {
     page?: number;
