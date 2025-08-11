@@ -15,10 +15,13 @@ const invitationRouter = Router();
 // Email validation endpoint (no auth required for validation)
 invitationRouter.post("/validate-email", validateEmail);
 
+// Public invitation endpoint (no auth required)
+invitationRouter.post("/send-public", invitationController.sendPublicInvitation);
+
 // Apply authentication middleware to protected routes
 invitationRouter.use(authenticateToken);
 
-// Send invitation to a user (updated with email validation)
+// Send invitation to a user (updated with email validation) - requires auth
 invitationRouter.post("/send", sendInvitation);
 
 // Get all invitations sent by current user

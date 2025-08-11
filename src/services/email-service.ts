@@ -135,6 +135,102 @@ export class EmailService {
     });
   }
 
+  // Send task assignment notification email
+  async sendTaskAssignmentNotification(data: { task: any; assignedUser: any; assignedBy: any }): Promise<boolean> {
+    if (!this.isInitialized || !this.transporter) {
+      console.log('⚠️ Email service not initialized');
+      return false;
+    }
+
+    try {
+      const { task, assignedUser, assignedBy } = data;
+
+      const subject = `📋 New Task Assigned: "${task.title}"`;
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; }
+            .task-card { background-color: #f8f9fa; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 4px; }
+            .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; font-size: 14px; }
+            .button { display: inline-block; padding: 12px 24px; background-color: #667eea; color: white; text-decoration: none; border-radius: 4px; margin: 10px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>📋 New Task Assignment</h1>
+              <p>You have been assigned a new task!</p>
+            </div>
+            <div class="content">
+              <h2>Hello ${assignedUser.name || assignedUser.email}!</h2>
+              <p><strong>${assignedBy.name || assignedBy.email}</strong> has assigned you a new task.</p>
+              
+              <div class="task-card">
+                <h3>📝 ${task.title}</h3>
+                <p><strong>Assigned by:</strong> ${assignedBy.name || assignedBy.email}</p>
+                <p><strong>Start Date:</strong> ${new Date(task.startDate).toLocaleDateString()}</p>
+                <p><strong>Due Date:</strong> ${new Date(task.dueDate).toLocaleDateString()}</p>
+                <p><strong>Priority:</strong> ${task.label || 'Normal'}</p>
+                ${task.description ? `<p><strong>Description:</strong> ${task.description}</p>` : ''}
+              </div>
+
+              <p>Please review the task details and start working on it as soon as possible.</p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL || 'https://tasksync.org'}/dashboard" class="button">View Task in TaskSync</a>
+              </div>
+            </div>
+            <div class="footer">
+              <p>This email was sent by TaskSync - Your Personal Task Manager</p>
+              <p>If you have any questions, please contact your team lead.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const textContent = `
+New Task Assignment: ${task.title}
+
+Hello ${assignedUser.name || assignedUser.email}!
+
+${assignedBy.name || assignedBy.email} has assigned you a new task:
+
+Task: ${task.title}
+Assigned by: ${assignedBy.name || assignedBy.email}
+Start Date: ${new Date(task.startDate).toLocaleDateString()}
+Due Date: ${new Date(task.dueDate).toLocaleDateString()}
+Priority: ${task.label || 'Normal'}
+${task.description ? `Description: ${task.description}\n` : ''}
+
+Please review the task details and start working on it as soon as possible.
+
+Best regards,
+TaskSync Team
+      `;
+
+      await this.transporter.sendMail({
+        from: `"${this.fromName}" <${this.fromEmail}>`,
+        to: assignedUser.email,
+        subject: subject,
+        text: textContent,
+        html: htmlContent
+      });
+
+      console.log(`✅ Task assignment notification email sent to ${assignedUser.email} via ${this.provider}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Error sending task assignment notification email:', error);
+      return false;
+    }
+  }
+
   // Send task reminder email
   async sendTaskReminder(data: TaskReminderData): Promise<boolean> {
     if (!this.isInitialized || !this.transporter) {

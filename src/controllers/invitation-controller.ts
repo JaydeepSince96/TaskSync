@@ -14,7 +14,111 @@ const emailValidationService = new EmailValidationService();
 export class InvitationController {
   constructor(private invitationService: InvitationService, private emailService: EmailService) {}
 
-  // Send invitation to a user
+  // Send public invitation (no authentication required)
+  sendPublicInvitation: RequestHandler = async (req, res) => {
+    try {
+      const { email, inviterName, workspaceName } = req.body;
+
+      if (!email || !email.trim()) {
+        res.status(400).json({
+          success: false,
+          message: "Email is required"
+        });
+        return;
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid email format"
+        });
+        return;
+      }
+
+      // Check if user is already registered
+      const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
+      if (existingUser) {
+        res.status(409).json({
+          success: false,
+          message: `User with email "${email.trim()}" is already registered`,
+          code: "USER_ALREADY_REGISTERED"
+        });
+        return;
+      }
+
+      // Check if there's already a pending invitation for this email
+      const existingInvitation = await Invitation.findOne({ 
+        email: email.trim().toLowerCase(), 
+        status: 'pending',
+        expiresAt: { $gt: new Date() } 
+      });
+
+      if (existingInvitation) {
+        res.status(409).json({
+          success: false,
+          message: `Invitation already sent to "${email.trim()}". Please wait for them to accept or for it to expire.`,
+          code: "INVITATION_ALREADY_PENDING"
+        });
+        return;
+      }
+
+      // Create new invitation with a system user as inviter
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // Expires in 7 days
+
+      const invitation = new Invitation({
+        email: email.trim().toLowerCase(),
+        invitedBy: null, // No specific user for public invitations
+        token,
+        status: 'pending',
+        expiresAt,
+        isPublicInvitation: true
+      });
+
+      await invitation.save();
+
+      // Send invitation email using the email validation service
+      const emailSent = await emailValidationService.sendInvitationEmail({
+        toEmail: email.trim(),
+        inviterName: inviterName || 'TaskSync Team',
+        invitationToken: token,
+        workspaceName: workspaceName || 'TaskSync'
+      });
+
+      if (!emailSent) {
+        // Delete the invitation if email failed
+        await Invitation.findByIdAndDelete(invitation._id);
+        res.status(500).json({
+          success: false,
+          message: 'Failed to send invitation email'
+        });
+        return;
+      }
+
+      res.status(201).json({
+        success: true,
+        message: "Public invitation sent successfully",
+        data: {
+          id: invitation._id,
+          email: invitation.email,
+          status: invitation.status,
+          expiresAt: invitation.expiresAt,
+          createdAt: invitation.createdAt
+        }
+      });
+    } catch (error) {
+      console.error("Error sending public invitation:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to send invitation"
+      });
+    }
+  };
+
+  // Send invitation to a user (requires authentication)
   sendInvitation: RequestHandler = async (req, res) => {
     try {
       const userId = getUserId(req);
