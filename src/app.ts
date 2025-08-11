@@ -266,7 +266,6 @@ connectDB()
       console.error(`❌ Server startup error:`, error);
       process.exit(1);
     });
-    });
   })
   .catch((err: any) => {
     console.error("❌ Failed to connect to DB:", err);
