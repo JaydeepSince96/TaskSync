@@ -121,16 +121,16 @@ export class EmailService {
 
   private initializeSMTP() {
     this.provider = 'smtp';
-    this.fromEmail = EMAIL_USER;
+    this.fromEmail = EMAIL_USER!; // Non-null assertion since we check in initialize()
     this.fromName = EMAIL_FROM_NAME;
 
     this.transporter = nodemailer.createTransport({
-      host: EMAIL_HOST,
-      port: EMAIL_PORT,
+      host: EMAIL_HOST!,
+      port: EMAIL_PORT!,
       secure: EMAIL_SECURE,
       auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS,
+        user: EMAIL_USER!,
+        pass: EMAIL_PASS!,
       },
     });
   }
@@ -464,6 +464,102 @@ TaskSync Team
     } catch (error) {
       console.error('❌ Error sending invitation email:', error);
       throw new Error('Failed to send invitation email');
+    }
+  }
+
+  // Send OTP email for registration
+  async sendOTPEmail(email: string, otp: string, name?: string): Promise<boolean> {
+    if (!this.isInitialized || !this.transporter) {
+      console.log('⚠️ Email service not initialized');
+      return false;
+    }
+
+    try {
+      const subject = '🔐 Your TaskSync Verification Code';
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .header { background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%); color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; text-align: center; }
+            .otp-box { background-color: #f8fafc; border: 2px dashed #0ea5e9; border-radius: 8px; padding: 20px; margin: 20px 0; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #0f172a; }
+            .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; font-size: 14px; }
+            .warning { background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 15px; margin: 20px 0; color: #92400e; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🔐 Email Verification</h1>
+              <p>Complete your TaskSync registration</p>
+            </div>
+            <div class="content">
+              <h2>Hello${name ? ` ${name}` : ''}!</h2>
+              <p>Welcome to TaskSync! To complete your registration, please verify your email address using the verification code below:</p>
+              
+              <div class="otp-box">
+                ${otp}
+              </div>
+
+              <p><strong>This verification code will expire in 15 minutes.</strong></p>
+              
+              <div class="warning">
+                <p><strong>⚠️ Security Notice:</strong></p>
+                <p>• Do not share this code with anyone</p>
+                <p>• TaskSync will never ask for this code via phone or email</p>
+                <p>• If you didn't request this verification, please ignore this email</p>
+              </div>
+
+              <p>Enter this code in the registration form to activate your account and start organizing your tasks!</p>
+            </div>
+            <div class="footer">
+              <p>This email was sent by TaskSync - Your Personal Task Manager</p>
+              <p>If you have any questions, please contact our support team.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const textContent = `
+TaskSync Email Verification
+
+Hello${name ? ` ${name}` : ''}!
+
+Welcome to TaskSync! To complete your registration, please verify your email address using this verification code:
+
+Your Verification Code: ${otp}
+
+This code will expire in 15 minutes.
+
+SECURITY NOTICE:
+- Do not share this code with anyone
+- TaskSync will never ask for this code via phone or email
+- If you didn't request this verification, please ignore this email
+
+Enter this code in the registration form to activate your account.
+
+Best regards,
+TaskSync Team
+      `;
+
+      await this.transporter.sendMail({
+        from: `"${this.fromName}" <${this.fromEmail}>`,
+        to: email,
+        subject: subject,
+        text: textContent,
+        html: htmlContent
+      });
+
+      console.log(`✅ OTP email sent to ${email} via ${this.provider}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Error sending OTP email:', error);
+      return false;
     }
   }
 

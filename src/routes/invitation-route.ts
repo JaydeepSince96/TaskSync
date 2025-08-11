@@ -4,6 +4,7 @@ import { InvitationController } from "../controllers/invitation-controller";
 import { InvitationService } from "../services/invitation-service";
 import { EmailService } from "../services/email-service";
 import { authenticateToken } from "../middleware/auth-middleware";
+import { validateEmail, sendInvitation } from "../controllers/invitation-controller";
 
 const invitationService = new InvitationService();
 const emailService = new EmailService();
@@ -11,11 +12,14 @@ const invitationController = new InvitationController(invitationService, emailSe
 
 const invitationRouter = Router();
 
-// Apply authentication middleware to all routes
+// Email validation endpoint (no auth required for validation)
+invitationRouter.post("/validate-email", validateEmail);
+
+// Apply authentication middleware to protected routes
 invitationRouter.use(authenticateToken);
 
-// Send invitation to a user
-invitationRouter.post("/send", invitationController.sendInvitation);
+// Send invitation to a user (updated with email validation)
+invitationRouter.post("/send", sendInvitation);
 
 // Get all invitations sent by current user
 invitationRouter.get("/my-invitations", invitationController.getMyInvitations);

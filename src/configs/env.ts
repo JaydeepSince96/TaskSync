@@ -24,11 +24,12 @@ export const UPLOAD_PATH = process.env.UPLOAD_PATH || "uploads/";
 export const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || "5000000"); // 5MB
 
 // Email Configuration (Nodemailer) - Legacy SMTP
-export const EMAIL_HOST = process.env.EMAIL_HOST || "smtp.gmail.com";
-export const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || "587");
-export const EMAIL_SECURE = process.env.EMAIL_SECURE === "true" || false;
-export const EMAIL_USER = process.env.EMAIL_USER || "";
-export const EMAIL_PASS = process.env.EMAIL_PASS || "";
+// Only configure if explicitly set (no defaults to avoid conflicts with AWS SES)
+export const EMAIL_HOST = process.env.EMAIL_HOST;
+export const EMAIL_PORT = process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT) : undefined;
+export const EMAIL_SECURE = process.env.EMAIL_SECURE === "true";
+export const EMAIL_USER = process.env.EMAIL_USER;
+export const EMAIL_PASS = process.env.EMAIL_PASS;
 export const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || "TaskSync";
 
 // Professional Email Service Providers

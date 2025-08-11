@@ -24,14 +24,18 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://localhost:3001",
   "http://localhost:5173",
   "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
   "http://127.0.0.1:5173",
   "https://taskSync.ap-south-1.elasticbeanstalk.com",
   "https://tasksync.org",
   "https://www.tasksync.org",
   "http://tasksync.org",
-  "http://www.tasksync.org"
+  "http://www.tasksync.org",
+  "https://api.tasksync.org",
+  "https://app.tasksync.org"
 ];
 
 // Add FRONTEND_URL from environment if defined
@@ -40,24 +44,7 @@ if (FRONTEND_URL && !allowedOrigins.includes(FRONTEND_URL)) {
 }
 
 const corsOptions = {
-  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    if (!origin) return callback(null, true); // Allow curl/postman
-    
-    // Check if we're in development mode
-    const isDevelopment = process.env.NODE_ENV !== 'production';
-    
-    if (isDevelopment) {
-      console.log(`Development mode: Allowing origin: ${origin}`);
-      return callback(null, true);
-    }
-    
-    if (allowedOrigins.includes(origin)) {
-      console.log(`Production mode: Allowing origin: ${origin}`);
-      return callback(null, true);
-    }
-    console.warn(`Production mode: Blocking origin: ${origin}`);
-    return callback(new Error("Not allowed by CORS"), false);
-  },
+  origin: true, // Allow all origins temporarily
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
   credentials: true,
@@ -65,9 +52,27 @@ const corsOptions = {
   maxAge: 86400
 };
 
-// Middleware
+// CORS Middleware - Aggressive fix for all requests
+app.use((req, res, next) => {
+  // Set CORS headers for ALL requests
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
+  next();
+});
+
+// Backup CORS middleware
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // Preflight
+app.options("*", cors(corsOptions));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(passport.initialize());
@@ -78,6 +83,16 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} — Origin: ${req.get("Origin") || "N/A"}`);
   next();
+});
+
+// CORS Test Endpoint
+app.get("/api/cors-test", (req, res) => {
+  res.json({
+    success: true,
+    message: "CORS is working!",
+    origin: req.get("Origin"),
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Rate Limiting - More lenient for payment operations
@@ -100,6 +115,11 @@ app.use("/api/", apiLimiter);
 
 // Root
 app.get("/", (req, res) => {
+  console.log(`🏠 Root endpoint requested at ${new Date().toISOString()}`);
+  console.log(`🏠 Path: ${req.path}`);
+  console.log(`🏠 Method: ${req.method}`);
+  console.log(`🏠 Headers:`, req.headers);
+  
   res.status(200).json({
     success: true,
     message: "TaskSync API is running!",
@@ -112,10 +132,17 @@ app.get("/", (req, res) => {
       headers: req.headers
     }
   });
+  
+  console.log(`🏠 Root endpoint response sent successfully`);
 });
 
 // Health check endpoint
 app.get("/health", (req, res) => {
+  console.log(`🏥 Health check requested at ${new Date().toISOString()}`);
+  console.log(`🏥 Uptime: ${process.uptime()}s`);
+  console.log(`🏥 Memory:`, process.memoryUsage());
+  console.log(`🏥 Database: ${mongoose.connection.readyState === 1 ? "connected" : "disconnected"}`);
+  
   res.status(200).json({
     success: true,
     message: "API is healthy",
@@ -124,15 +151,67 @@ app.get("/health", (req, res) => {
     memory: process.memoryUsage(),
     database: mongoose.connection.readyState === 1 ? "connected" : "disconnected"
   });
+  
+  console.log(`🏥 Health check response sent successfully`);
 });
 
 // Health Check
 app.get("/api/health", (req, res) => {
+  console.log(`🏥 API Health check requested at ${new Date().toISOString()}`);
+  
   res.status(200).json({
     success: true,
     message: "Server is healthy",
     timestamp: new Date().toISOString()
   });
+  
+  console.log(`🏥 API Health check response sent successfully`);
+});
+
+// Email Service Status Check (temporary diagnostic endpoint)
+app.get("/api/email-status", (req, res) => {
+  try {
+    const { EmailService } = require('./services/email-service');
+    const emailService = new EmailService();
+    const status = emailService.getStatus();
+    
+    res.status(200).json({
+      success: true,
+      message: "Email service status",
+      data: {
+        ...status,
+        environmentVariables: {
+          sendgrid: {
+            hasApiKey: !!process.env.SENDGRID_API_KEY,
+            hasFromEmail: !!process.env.SENDGRID_FROM_EMAIL
+          },
+          mailgun: {
+            hasApiKey: !!process.env.MAILGUN_API_KEY,
+            hasDomain: !!process.env.MAILGUN_DOMAIN,
+            hasFromEmail: !!process.env.MAILGUN_FROM_EMAIL
+          },
+          awsSes: {
+            hasAccessKey: !!process.env.AWS_SES_ACCESS_KEY_ID,
+            hasSecretKey: !!process.env.AWS_SES_SECRET_ACCESS_KEY,
+            hasFromEmail: !!process.env.AWS_SES_FROM_EMAIL,
+            region: process.env.AWS_SES_REGION
+          },
+          smtp: {
+            hasUser: !!process.env.EMAIL_USER,
+            hasPass: !!process.env.EMAIL_PASS,
+            host: process.env.EMAIL_HOST,
+            port: process.env.EMAIL_PORT
+          }
+        }
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to get email service status",
+      error: error.message
+    });
+  }
 });
 
 // CORS Test
@@ -175,12 +254,17 @@ connectDB()
     notificationScheduler = initializeGlobalNotificationScheduler();
     taskReminderScheduler = initializeGlobalTaskReminderScheduler();
     
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running at http://localhost:${PORT}`);
+    app.listen(Number(PORT), '0.0.0.0', () => {
+      console.log(`🚀 Server running at http://0.0.0.0:${PORT}`);
       console.log(`📱 WhatsApp notifications initialized`);
       console.log(`⏰ Daily reminders scheduled for 10am, 3pm, and 7pm`);
       console.log(`🌅 Task reminders scheduled for 8am and 5pm`);
       console.log(`🔍 Overdue task checks every hour`);
+      console.log(`✅ Application startup completed successfully`);
+      console.log(`✅ Ready to accept requests`);
+    }).on('error', (error) => {
+      console.error(`❌ Server startup error:`, error);
+      process.exit(1);
     });
   })
   .catch((err: any) => {

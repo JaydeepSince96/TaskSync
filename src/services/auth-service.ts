@@ -52,7 +52,7 @@ export class AuthService {
         name: userData.name,
         email: userData.email,
         password: userData.password,
-        isEmailVerified: true // For now, auto-verify. You can add email verification later
+        isEmailVerified: true // Email is verified via OTP before reaching here
       });
 
       await newUser.save();

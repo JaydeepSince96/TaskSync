@@ -8,20 +8,47 @@ import {
   registerValidation,
   loginValidation,
   changePasswordValidation,
+  sendOTPValidation,
+  verifyOTPValidation,
+  resendOTPValidation,
   handleValidationErrors
 } from "../middleware/validation-middleware";
 import { AuthService } from "../services/auth-service";
 import { InvitationService } from "../services/invitation-service";
 import { SubscriptionService } from "../services/subscription-service";
+import { OTPService } from "../services/otp-service";
 
 const authService = new AuthService();
 const invitationService = new InvitationService();
 const subscriptionService = new SubscriptionService();
-const authController = new AuthController(authService, invitationService, subscriptionService);
+const otpService = new OTPService();
+const authController = new AuthController(authService, invitationService, subscriptionService, otpService);
 
 const authRouter = Router();
 
-// Public routes
+// Public routes - OTP-based registration
+authRouter.post(
+  "/send-otp",
+  sendOTPValidation,
+  handleValidationErrors,
+  authController.sendRegistrationOTP
+);
+
+authRouter.post(
+  "/verify-otp",
+  verifyOTPValidation,
+  handleValidationErrors,
+  authController.verifyRegistrationOTP
+);
+
+authRouter.post(
+  "/resend-otp",
+  resendOTPValidation,
+  handleValidationErrors,
+  authController.resendRegistrationOTP
+);
+
+// Legacy registration route (for backward compatibility)
 authRouter.post(
   "/register",
   registerValidation,

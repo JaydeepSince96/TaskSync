@@ -7,14 +7,134 @@ import { getUserId } from "../utils/auth-types";
 import { InvitationService } from "../services/invitation-service";
 import { IInvitation } from "../models/invitation-model";
 import { SubscriptionService } from "../services/subscription-service";
+import { OTPService } from "../services/otp-service";
 
 export class AuthController {
   constructor(
     private authService: AuthService,
     private invitationService: InvitationService,
-    private subscriptionService: SubscriptionService
+    private subscriptionService: SubscriptionService,
+    private otpService: OTPService
   ) {}
 
+  // Step 1: Send OTP for registration
+  sendRegistrationOTP = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { name, email, password, invitationToken } = req.body;
+      
+      // Validate invitation token if provided
+      let validInvitation: IInvitation | null = null;
+      if (invitationToken) {
+        validInvitation = await this.invitationService.validateInvitationToken(invitationToken, email);
+        if (!validInvitation) {
+          res.status(400).json({ success: false, message: "Invalid or expired invitation token" });
+          return;
+        }
+      }
+
+      // Send OTP
+      const result = await this.otpService.sendRegistrationOTP(email, { 
+        name, 
+        password, 
+        invitationToken 
+      });
+
+      if (result.success) {
+        res.status(200).json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error: any) {
+      console.error("Send registration OTP controller error:", error);
+      res.status(500).json({ success: false, message: "Internal server error" });
+    }
+  };
+
+  // Step 2: Verify OTP and complete registration
+  verifyRegistrationOTP = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { email, otp } = req.body;
+
+      // Verify OTP
+      const otpResult = await this.otpService.verifyRegistrationOTP(email, otp);
+      if (!otpResult.success) {
+        res.status(400).json(otpResult);
+        return;
+      }
+
+      // Extract user data from OTP verification
+      const userData = otpResult.data.userData;
+      let validInvitation: IInvitation | null = null;
+
+      // Re-validate invitation if token exists
+      if (userData.invitationToken) {
+        validInvitation = await this.invitationService.validateInvitationToken(userData.invitationToken, email);
+        if (!validInvitation) {
+          res.status(400).json({ success: false, message: "Invalid or expired invitation token" });
+          return;
+        }
+      }
+
+      // Complete user registration
+      const result = await this.authService.register({ 
+        name: userData.name, 
+        email, 
+        password: userData.password 
+      });
+
+      if (result.success) {
+        // Accept invitation if exists
+        if (validInvitation) {
+          await this.invitationService.acceptInvitation((validInvitation._id as string).toString());
+        }
+        
+        // Initialize trial subscription for new user
+        if (result.data?.user?._id) {
+          try {
+            const trialResult = await this.subscriptionService.initializeTrialSubscription(result.data.user._id.toString());
+            if (trialResult.success) {
+              console.log(`✅ Trial subscription initialized for user ${result.data.user._id}`);
+            } else {
+              console.log(`⚠️ Trial initialization failed for user ${result.data.user._id}: ${trialResult.message}`);
+            }
+          } catch (trialError) {
+            console.error(`❌ Error initializing trial for user ${result.data.user._id}:`, trialError);
+          }
+        }
+        
+        res.status(201).json({
+          success: true,
+          message: "Registration completed successfully! Email verified.",
+          data: result.data
+        });
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error: any) {
+      console.error("Verify registration OTP controller error:", error);
+      res.status(500).json({ success: false, message: "Internal server error" });
+    }
+  };
+
+  // Resend OTP
+  resendRegistrationOTP = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { email } = req.body;
+
+      const result = await this.otpService.resendRegistrationOTP(email);
+
+      if (result.success) {
+        res.status(200).json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error: any) {
+      console.error("Resend registration OTP controller error:", error);
+      res.status(500).json({ success: false, message: "Internal server error" });
+    }
+  };
+
+  // Legacy registration endpoint (for backward compatibility)
   register = async (req: Request, res: Response): Promise<void> => {
     try {
       const { name, email, password, invitationToken } = req.body;
