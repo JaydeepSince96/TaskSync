@@ -15,15 +15,6 @@ const notificationController = new NotificationController(notificationManager, w
 
 const notificationRouter = express.Router();
 
-// Simple test endpoint (no auth)
-notificationRouter.get('/test-public', (req, res) => {
-  res.json({
-    success: true,
-    message: "Public endpoint working",
-    timestamp: new Date().toISOString()
-  });
-});
-
 // GET /api/notifications/health - Public health check (no auth required)
 notificationRouter.get('/health', notificationController.healthCheck);
 
@@ -32,27 +23,6 @@ notificationRouter.use(authenticateToken);
 
 // GET /api/notifications/status - Get status of all notification services
 notificationRouter.get('/status', notificationController.getServicesStatus);
-
-// POST /api/notifications/test - Test all notification services
-notificationRouter.post('/test', notificationController.testAllServices);
-
-// POST /api/notifications/whatsapp/test - Test WhatsApp service specifically
-notificationRouter.post('/whatsapp/test', notificationController.testWhatsApp);
-
-// POST /api/notifications/email/test - Test Email service specifically
-notificationRouter.post('/email/test', notificationController.testEmail);
-
-// POST /api/notifications/push/test - Test Push notification service specifically
-notificationRouter.post('/push/test', notificationController.testPushNotifications);
-
-// POST /api/notifications/task-reminder/:taskId - Send manual task reminder
-notificationRouter.post('/task-reminder/:taskId', notificationController.sendTaskReminder);
-
-// POST /api/notifications/weekly-report - Send manual weekly report
-notificationRouter.post('/weekly-report', notificationController.sendWeeklyReport);
-
-// POST /api/notifications/custom - Send custom notification
-notificationRouter.post('/custom', notificationController.sendCustomMessage);
 
 // GET /api/notifications/preferences - Get user notification preferences
 notificationRouter.get('/preferences', notificationController.getPreferences);

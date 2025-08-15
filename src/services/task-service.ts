@@ -22,9 +22,24 @@ export class TaskService {
   }
   // Get all task for a specific user
   async getAllTask(userId: string): Promise<ITask[]> {
-    return await Task.find({ userId })
+    console.log('🔄 Service: Getting all tasks for user:', { userId });
+    
+    const tasks = await Task.find({ userId })
       .populate('assignedTo', 'name email profilePicture')
       .sort({ dueDate: 1 });
+    
+    console.log('✅ Service: Tasks fetched:', { 
+      totalTasks: tasks.length,
+      tasksWithAssignments: tasks.filter(t => t.assignedTo && t.assignedTo.length > 0).length,
+      assignmentsDetails: tasks.map(t => ({
+        taskId: t._id,
+        title: t.title,
+        assignedTo: t.assignedTo,
+        assignedToLength: Array.isArray(t.assignedTo) ? t.assignedTo.length : 0
+      }))
+    });
+    
+    return tasks;
   }
 
   // Get single task by ID for a specific user
@@ -272,9 +287,15 @@ export class TaskService {
     
     // Handle assignedTo field - convert emails to ObjectIds
     if (updateData.assignedTo !== undefined) {
+      console.log('🔄 Service: Processing assignedTo field:', { 
+        updateDataAssignedTo: updateData.assignedTo,
+        updateDataAssignedToLength: updateData.assignedTo?.length || 0 
+      });
+      
       if (updateData.assignedTo.length === 0) {
         // If empty array, clear assignments
         filteredUpdateData.assignedTo = [];
+        console.log('🔄 Service: Clearing all assignments');
       } else {
         try {
           const assignedUserIds: Types.ObjectId[] = [];
@@ -285,14 +306,17 @@ export class TaskService {
               const assignedUser = await User.findOne({ email: email.trim() });
               if (assignedUser) {
                 assignedUserIds.push(assignedUser._id as Types.ObjectId);
+                console.log('🔄 Service: Found user for assignment:', { email: email.trim(), userId: assignedUser._id });
               } else {
                 // If user not found, throw an error to ensure data integrity
+                console.log('❌ Service: User not found for assignment:', { email: email.trim() });
                 throw new Error(`User with email "${email.trim()}" not found`);
               }
             }
           }
           
           filteredUpdateData.assignedTo = assignedUserIds;
+          console.log('🔄 Service: Final assignedUserIds:', { assignedUserIds, count: assignedUserIds.length });
         } catch (error) {
           // Re-throw the error to be handled by the controller
           throw error;
@@ -305,6 +329,15 @@ export class TaskService {
     if (updatedTask) {
       // Populate assignedTo with user details
       const populatedTask = await updatedTask.populate('assignedTo', 'name email profilePicture');
+      
+      console.log('✅ Service: Task updated and populated:', { 
+        taskId: populatedTask._id,
+        assignedTo: populatedTask.assignedTo,
+        assignedToLength: populatedTask.assignedTo?.length || 0,
+        assignedToDetails: Array.isArray(populatedTask.assignedTo) 
+          ? populatedTask.assignedTo.map((u: any) => ({ name: u.name, email: u.email }))
+          : []
+      });
       
       // Send email notifications to newly assigned users
       if (updateData.assignedTo && updateData.assignedTo.length > 0) {
@@ -319,7 +352,9 @@ export class TaskService {
           const originalTask = await Task.findById(id).populate('assignedTo', 'name email profilePicture');
           
           if (originalTask && populatedTask) {
-            const originalAssignedEmails = originalTask.assignedTo?.map((user: any) => user.email) || [];
+            const originalAssignedEmails = Array.isArray(originalTask.assignedTo) 
+              ? originalTask.assignedTo.map((user: any) => user.email) 
+              : [];
             const newAssignedEmails = updateData.assignedTo || [];
             
             // Find newly assigned users

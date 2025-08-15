@@ -142,32 +142,6 @@ export class PushNotificationService {
     }
   }
 
-  // Send test push notification
-  async sendTestNotification(deviceTokens: string[]): Promise<boolean> {
-    if (!this.isInitialized || deviceTokens.length === 0) {
-      console.log('⚠️ FCM push notification service not initialized or no device tokens');
-      return false;
-    }
-    try {
-      const msg: MulticastMessage = {
-        notification: {
-          title: '🔔 Test Notification',
-          body: 'This is a test push notification from the server.',
-        },
-        data: {
-          type: 'test',
-        },
-        tokens: deviceTokens,
-      };
-      const response = await admin.messaging().sendEachForMulticast(msg);
-      console.log(`✅ Test push notification sent`, response);
-      return response.successCount > 0;
-    } catch (error) {
-      console.error('❌ Error sending test push notification:', error);
-      return false;
-    }
-  }
-
   isAvailable(): boolean {
     return this.isInitialized;
   }

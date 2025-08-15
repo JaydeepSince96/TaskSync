@@ -22,6 +22,9 @@ import helmet from "helmet";
 
 const app = express();
 
+// Trust proxy for AWS Elastic Beanstalk (fixes rate limiting issues)
+app.set('trust proxy', 1);
+
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
@@ -44,7 +47,17 @@ if (FRONTEND_URL && !allowedOrigins.includes(FRONTEND_URL)) {
 }
 
 const corsOptions = {
-  origin: true, // Allow all origins temporarily
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('🔍 CORS blocked origin:', origin);
+      callback(null, true); // Temporarily allow all origins for debugging
+    }
+  },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
   credentials: true,
@@ -55,14 +68,23 @@ const corsOptions = {
 // CORS Middleware - Aggressive fix for all requests
 app.use((req, res, next) => {
   // Set CORS headers for ALL requests
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.get('Origin');
+  
+  // Allow specific origins or all origins for debugging
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Requested-With, X-User-Context');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Max-Age', '86400');
   
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('🔍 CORS preflight request handled:', req.path);
     res.status(200).end();
     return;
   }
@@ -85,16 +107,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS Test Endpoint
-app.get("/api/cors-test", (req, res) => {
-  res.json({
-    success: true,
-    message: "CORS is working!",
-    origin: req.get("Origin"),
-    timestamp: new Date().toISOString()
-  });
-});
-
 // Rate Limiting - More lenient for payment operations
 // Increased limit to accommodate payment flow polling and subscription checks
 const apiLimiter = rateLimit({
@@ -103,12 +115,16 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => [
-    "/api/health", 
-    "/api/cors-test"
+    "/api/health"
   ].includes(req.path),
   message: {
     success: false,
     message: "Too many requests from this IP, please try again later."
+  },
+  // Fix for AWS Elastic Beanstalk proxy issues
+  keyGenerator: (req) => {
+    // Use X-Forwarded-For if available, otherwise use IP
+    return req.headers['x-forwarded-for'] as string || req.ip || req.connection.remoteAddress || 'unknown';
   }
 });
 app.use("/api/", apiLimiter);
@@ -212,23 +228,6 @@ app.get("/api/email-status", (req, res) => {
       error: error.message
     });
   }
-});
-
-// CORS Test
-app.get("/api/cors-test", (req, res) => {
-  const isDevelopment = process.env.NODE_ENV !== 'production';
-  
-  res.status(200).json({
-    success: true,
-    message: "CORS is working!",
-    origin: req.get("Origin"),
-    environment: process.env.NODE_ENV || 'development',
-    frontendUrl: FRONTEND_URL,
-    isDevelopment: isDevelopment,
-    corsMode: isDevelopment ? 'DEVELOPMENT' : 'RESTRICTED',
-    timestamp: new Date().toISOString(),
-    allowedOrigins
-  });
 });
 
 // Routes

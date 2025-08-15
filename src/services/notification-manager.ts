@@ -155,7 +155,7 @@ export class NotificationManager {
       }
       if (channels.includes('email') && preferences.email && preferences.customMessages && this.emailService.isAvailable()) {
         try {
-          const sent = await this.emailService.sendTestEmail(user.email);
+          const sent = await this.emailService.sendCustomEmail(user.email, title, message);
           if (sent) result.sentVia.push('Email'); else result.errors.push('Email custom message failed');
         } catch (error) { result.errors.push(`Email error: ${error instanceof Error ? error.message : 'Unknown error'}`); }
       }
@@ -331,32 +331,6 @@ export class NotificationManager {
         customMessages: true
       };
     }
-  }
-
-  // Test all notification services
-  async testAllServices(testData: { email: string; phoneNumber?: string; deviceTokens?: string[] }): Promise<any> {
-    const results = {
-      whatsapp: { available: false, testSent: false, error: null as string | null },
-      email: { available: false, testSent: false, error: null as string | null },
-      push: { available: false, testSent: false, error: null as string | null }
-    };
-    results.whatsapp.available = this.whatsappService.isAvailable();
-    if (results.whatsapp.available && testData.phoneNumber) {
-      // WhatsApp test functionality removed - not needed for production
-      results.whatsapp.testSent = false;
-      results.whatsapp.error = 'WhatsApp test functionality removed';
-    }
-    results.email.available = this.emailService.isAvailable();
-    if (results.email.available) {
-      try { results.email.testSent = await this.emailService.sendTestEmail(testData.email); }
-      catch (error) { results.email.error = error instanceof Error ? error.message : 'Unknown error'; }
-    }
-    results.push.available = this.pushNotificationService.isAvailable();
-    if (results.push.available && testData.deviceTokens && testData.deviceTokens.length > 0) {
-      try { results.push.testSent = await this.pushNotificationService.sendTestNotification(testData.deviceTokens); }
-      catch (error) { results.push.error = error instanceof Error ? error.message : 'Unknown error'; }
-    }
-    return results;
   }
 
   // Get status of all notification services

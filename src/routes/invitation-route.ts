@@ -18,6 +18,9 @@ invitationRouter.post("/validate-email", validateEmail);
 // Public invitation endpoint (no auth required)
 invitationRouter.post("/send-public", invitationController.sendPublicInvitation);
 
+// Debug endpoint to check environment variables (no auth required)
+invitationRouter.get("/debug-env", invitationController.debugEnvVars);
+
 // Apply authentication middleware to protected routes
 invitationRouter.use(authenticateToken);
 

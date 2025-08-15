@@ -111,13 +111,12 @@ export class InvitationService {
       .populate('invitedBy', 'name email');
   }
 
-  // Get invited users for assignment suggestions (only pending/accepted invitations)
+  // Get invited users for assignment suggestions (including expired invitations)
   async getInvitedUsers(userId: string): Promise<Array<{email: string; name: string; status: InvitationStatus; isRegistered: boolean}>> {
-    // Get all invitations sent by this user that are not expired
+    // Get all invitations sent by this user (including expired ones)
     const invitations = await Invitation.find({ 
       invitedBy: userId,
-      status: { $in: [InvitationStatus.PENDING, InvitationStatus.ACCEPTED] },
-      expiresAt: { $gt: new Date() }
+      status: { $in: [InvitationStatus.PENDING, InvitationStatus.ACCEPTED] }
     });
 
     const invitedUsers = [];
@@ -127,7 +126,7 @@ export class InvitationService {
       const registeredUser = await User.findOne({ email: invitation.email });
       
       if (registeredUser) {
-        // User has registered
+        // User has registered - include them regardless of invitation expiry
         invitedUsers.push({
           email: invitation.email,
           name: registeredUser.name,
@@ -136,8 +135,8 @@ export class InvitationService {
           _id: registeredUser._id,
           profilePicture: registeredUser.profilePicture
         });
-      } else if (invitation.status === InvitationStatus.PENDING) {
-        // User hasn't registered yet, but invitation is pending
+      } else if (invitation.status === InvitationStatus.PENDING && invitation.expiresAt > new Date()) {
+        // User hasn't registered yet, but invitation is still pending and not expired
         invitedUsers.push({
           email: invitation.email,
           name: invitation.email.split('@')[0], // Use email prefix as temporary name

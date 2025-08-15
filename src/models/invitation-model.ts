@@ -13,6 +13,7 @@ export interface IInvitation extends Document {
   token: string; // Unique invitation token for signup
   status: InvitationStatus;
   expiresAt: Date;
+  isPublicInvitation?: boolean; // Flag to identify public invitations
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,6 +49,11 @@ const InvitationSchema = new Schema<IInvitation>(
       type: Date, 
       required: true,
       index: true // Index for cleanup of expired invitations
+    },
+    isPublicInvitation: {
+      type: Boolean,
+      default: false,
+      index: true // Index for filtering public invitations
     },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },

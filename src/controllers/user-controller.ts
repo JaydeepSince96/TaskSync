@@ -43,6 +43,15 @@ export class UserController {
   // Search users by email or name for autocomplete (only invited users)
   searchUsers: RequestHandler = async (req, res) => {
     try {
+      console.log('🔍 User search request received:', {
+        method: req.method,
+        url: req.url,
+        query: req.query,
+        origin: req.get('Origin'),
+        authorization: req.headers.authorization ? 'Present' : 'Missing',
+        authLength: req.headers.authorization?.length || 0
+      });
+
       const userId = getUserId(req);
       let { query } = req.query;
       
@@ -52,7 +61,7 @@ export class UserController {
       }
       
       // Debug logging to check what query is received
-      console.log('Received search query:', {
+      console.log('📊 Received search query:', {
         raw: req.query.query,
         decoded: query,
         type: typeof query,
@@ -60,6 +69,7 @@ export class UserController {
       });
       
       if (!userId) {
+        console.log('❌ No user ID found in request');
         res.status(401).json({ 
           success: false, 
           message: "Authentication required" 
@@ -68,6 +78,7 @@ export class UserController {
       }
 
       if (!query || typeof query !== 'string' || query.trim().length < 2) {
+        console.log('❌ Invalid query:', query);
         res.status(400).json({
           success: false,
           message: "Query must be at least 2 characters long"
@@ -75,38 +86,61 @@ export class UserController {
         return;
       }
 
-      // Get invited users only (registered users who were invited by this user)
-      const invitedUsers = await this.invitationService.getInvitedUsers(userId);
+      console.log('✅ Query validation passed, fetching users for assignment...');
+
+      // Get all registered users for assignment (not just invited users)
+      const allUsers = await User.find({}, { name: 1, email: 1, profilePicture: 1 }).sort({ name: 1 });
       
-      // Filter invited users based on the search query
-      const filteredUsers = invitedUsers.filter(user => {
+      console.log('📊 All users fetched:', {
+        totalUsers: allUsers.length
+      });
+      
+      // Filter users based on the search query
+      const filteredUsers = allUsers.filter(user => {
         const searchTerm = query.trim().toLowerCase();
         return (
           user.email.toLowerCase().includes(searchTerm) ||
           user.name.toLowerCase().includes(searchTerm)
         );
-      }).filter(user => user.isRegistered); // Only show registered users for assignment
+      });
 
       // Debug logging to check search results
-      console.log('Search results:', {
+      console.log('📊 Search results:', {
         query: query.trim(),
         currentUserId: userId,
-        totalInvitedUsers: invitedUsers.length,
-        registeredInvitedUsers: invitedUsers.filter(u => u.isRegistered).length,
+        totalUsers: allUsers.length,
         filteredResults: filteredUsers.length,
         resultEmails: filteredUsers.map(u => u.email)
       });
 
-      res.status(200).json({
-        success: true,
-        data: filteredUsers,
-        message: "Users found successfully"
-      });
+      console.log('✅ Sending search response');
+      
+      // If no users found, return empty array but still success
+      if (filteredUsers.length === 0) {
+        console.log('📊 No users found matching query');
+        res.status(200).json({
+          success: true,
+          data: [],
+          message: "No users found matching your search"
+        });
+      } else {
+        res.status(200).json({
+          success: true,
+          data: filteredUsers,
+          message: "Users found successfully"
+        });
+      }
     } catch (error) {
-      console.error("Error searching users:", error);
+      console.error("❌ Error searching users:", error);
+      console.error("❌ Error details:", {
+        message: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
       res.status(500).json({
         success: false,
-        message: "Failed to search users"
+        message: "Failed to search users",
+        error: error instanceof Error ? error.message : "Unknown error occurred"
       });
     }
   };

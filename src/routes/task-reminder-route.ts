@@ -18,9 +18,6 @@ router.post('/initialize', taskReminderController.initializeScheduler);
 // Get user's task reminders
 router.get('/user-reminders', taskReminderController.getUserTaskReminders);
 
-// Test notification for current user
-router.post('/test-notification', taskReminderController.testNotification);
-
 // Manual trigger endpoints (for testing)
 router.post('/trigger/morning', taskReminderController.triggerMorningReminders);
 router.post('/trigger/evening', taskReminderController.triggerEveningReminders);

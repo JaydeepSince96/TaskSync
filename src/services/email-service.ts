@@ -438,33 +438,54 @@ TaskSync Team
     }
   }
 
-  // Test email service
-  async sendTestEmail(email: string): Promise<boolean> {
+  // Send custom email
+  async sendCustomEmail(email: string, subject: string, message: string): Promise<boolean> {
     if (!this.isInitialized || !this.transporter) {
       console.log('⚠️ Email service not initialized');
       return false;
     }
 
     try {
-      const testMessage = `
-        <h2>📧 Email Service Test</h2>
-        <p>This is a test email from your TaskSync notification system.</p>
-        <p>✅ If you received this email, your email notifications are working correctly!</p>
-        <p><strong>Provider:</strong> ${this.provider}</p>
-        <p><em>Test sent at: ${new Date().toLocaleString()}</em></p>
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .header { background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%); color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; }
+            .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>TaskSync</h1>
+              <p>Task Management Made Simple</p>
+            </div>
+            <div class="content">
+              ${message.replace(/\n/g, '<br>')}
+            </div>
+            <div class="footer">
+              <p>This email was sent by TaskSync - Your Personal Task Manager</p>
+            </div>
+          </div>
+        </body>
+        </html>
       `;
 
       await this.transporter.sendMail({
         from: `"${this.fromName}" <${this.fromEmail}>`,
         to: email,
-        subject: '🧪 TaskSync Email Test',
-        html: testMessage
+        subject: subject,
+        html: htmlContent
       });
 
-      console.log(`✅ Test email sent to ${email} via ${this.provider}`);
+      console.log(`✅ Custom email sent to ${email} via ${this.provider}`);
       return true;
     } catch (error) {
-      console.error('❌ Error sending test email:', error);
+      console.error('❌ Error sending custom email:', error);
       return false;
     }
   }

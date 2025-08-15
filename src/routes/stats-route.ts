@@ -10,11 +10,6 @@ const statsController = new StatsController(statsService);
 
 const statsRouter = express.Router();
 
-// Test route
-statsRouter.get("/test", (req, res) => {
-  res.json({ message: "Stats router is working" });
-});
-
 // Stats route
 statsRouter.get("/", statsController.getTaskStats);
 

@@ -88,15 +88,27 @@ export class EmailValidationService {
     workspaceName?: string;
   }): Promise<boolean> {
     try {
+      console.log("🔍 Starting invitation email send process...");
       const { toEmail, inviterName, invitationToken, workspaceName = 'TaskSync' } = invitationData;
+
+      console.log("🔍 Email service config:", {
+        hasApiKey: !!this.sendGridApiKey,
+        apiKeyLength: this.sendGridApiKey?.length,
+        fromEmail: this.fromEmail,
+        fromName: this.fromName
+      });
 
       // Validate email first
       const validation = await this.validateEmail(toEmail);
       if (!validation.isValid) {
+        console.log("❌ Email validation failed:", validation.reason);
         throw new Error(`Invalid email address: ${validation.reason}`);
       }
 
+      console.log("✅ Email validation passed");
+
       const invitationUrl = `${FRONTEND_URL || 'https://tasksync.org'}/register?token=${invitationToken}&email=${encodeURIComponent(toEmail)}`;
+      console.log("🔍 Generated invitation URL:", invitationUrl);
 
       // Using fetch instead of axios
       const emailData = {
@@ -132,6 +144,7 @@ export class EmailValidationService {
         ]
       };
 
+      console.log("🔍 Sending request to SendGrid API...");
       const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
         headers: {
@@ -141,16 +154,26 @@ export class EmailValidationService {
         body: JSON.stringify(emailData)
       });
 
+      console.log("🔍 SendGrid response status:", response.status);
+      console.log("🔍 SendGrid response headers:", Object.fromEntries(response.headers.entries()));
+
       if (response.status === 202) {
         console.log(`✅ Invitation email sent successfully to ${toEmail}`);
         return true;
       } else {
         const errorData = await response.text();
-        console.error(`❌ Failed to send invitation email to ${toEmail}:`, errorData);
+        console.error(`❌ Failed to send invitation email to ${toEmail}:`, {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
         return false;
       }
     } catch (error: any) {
-      console.error(`❌ Error sending invitation email to ${invitationData.toEmail}:`, error.message);
+      console.error(`❌ Error sending invitation email to ${invitationData.toEmail}:`, {
+        message: error.message,
+        stack: error.stack
+      });
       return false;
     }
   }
@@ -227,8 +250,14 @@ export class EmailValidationService {
    * Check if email service is available
    */
   isAvailable(): boolean {
-    // Temporarily disable SendGrid to prevent template errors
-    return false; // !!this.sendGridApiKey && !!this.fromEmail;
+    // Check if SendGrid is properly configured
+    const isConfigured = !!this.sendGridApiKey && !!this.fromEmail;
+    console.log("🔍 Email service availability check:", {
+      hasApiKey: !!this.sendGridApiKey,
+      hasFromEmail: !!this.fromEmail,
+      isConfigured
+    });
+    return isConfigured;
   }
 
   /**

@@ -437,6 +437,11 @@ export class TaskController {
 
       // Handle assignedTo field
       if (assignedTo !== undefined) {
+        console.log('🔄 Processing assignedTo field:', { 
+          taskId: id, 
+          assignedTo, 
+          assignedToLength: assignedTo?.length || 0 
+        });
         updateData.assignedTo = assignedTo;
       }
 
@@ -445,6 +450,13 @@ export class TaskController {
         res.status(404).json({ success: false, message: "Task not found" });
         return;
       }
+      
+      console.log('✅ Task updated successfully:', { 
+        taskId: todo._id, 
+        assignedTo: todo.assignedTo,
+        assignedToLength: todo.assignedTo?.length || 0 
+      });
+      
       const formattedTodo = this.formatTaskResponse(todo);
       res.status(200).json({ success: true, data: formattedTodo });
     } catch (error) {
