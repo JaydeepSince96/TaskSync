@@ -292,27 +292,78 @@ export class TaskService {
     // Send email notifications to assigned users
     if (assignedUserIds.length > 0) {
       try {
-        const EmailService = require('./email-service').EmailService;
+        console.log('🔄 Service: Attempting to send email notifications for task creation...');
+        
+        // Import and initialize email service with error handling
+        let EmailService;
+        try {
+          EmailService = require('./email-service').EmailService;
+        } catch (importError) {
+          console.error('❌ Error importing EmailService:', importError);
+          console.log('ℹ️ Service: Skipping email notifications due to import error');
+          return populatedTask;
+        }
+        
         const emailService = new EmailService();
+        
+        // Check if email service is properly initialized
+        if (!emailService || typeof emailService.sendTaskAssignmentNotification !== 'function') {
+          console.log('⚠️ Service: Email service not properly initialized, skipping notifications');
+          return populatedTask;
+        }
         
         // Get the user who created the task
         const taskCreator = await User.findById(userId);
+        if (!taskCreator) {
+          console.log('⚠️ Service: Task creator not found, skipping email notifications');
+          return populatedTask;
+        }
+        
+        console.log('🔄 Service: Task creator found:', { 
+          creatorId: taskCreator._id, 
+          creatorName: taskCreator.name,
+          creatorEmail: taskCreator.email 
+        });
+        
+        console.log(`🔄 Service: Sending notifications to ${assignedUserIds.length} assigned users`);
         
         for (const assignedUserId of assignedUserIds) {
-          const assignedUser = await User.findById(assignedUserId);
-          if (assignedUser && assignedUser.email) {
-            await emailService.sendTaskAssignmentNotification({
-              task: populatedTask,
-              assignedUser,
-              assignedBy: taskCreator
-            });
-            console.log(`✅ Task assignment notification sent to ${assignedUser.email}`);
+          try {
+            console.log(`🔄 Service: Processing email notification for user ID: ${assignedUserId}`);
+            const assignedUser = await User.findById(assignedUserId);
+            if (assignedUser && assignedUser.email) {
+              console.log(`🔄 Service: Found assigned user:`, { 
+                userId: assignedUser._id, 
+                userName: assignedUser.name,
+                userEmail: assignedUser.email 
+              });
+              
+              const notificationResult = await emailService.sendTaskAssignmentNotification({
+                task: populatedTask,
+                assignedUser,
+                assignedBy: taskCreator
+              });
+              
+              if (notificationResult) {
+                console.log(`✅ Task assignment notification sent to ${assignedUser.email}`);
+              } else {
+                console.log(`❌ Failed to send notification to ${assignedUser.email}`);
+              }
+            } else {
+              console.log(`❌ Service: User not found for ID: ${assignedUserId}`);
+            }
+          } catch (userError) {
+            console.error(`❌ Error processing email notification for user ${assignedUserId}:`, userError);
+            // Continue with other users even if one fails
           }
         }
       } catch (error) {
         console.error('❌ Error sending task assignment notifications:', error);
+        console.log('ℹ️ Service: Task creation will continue despite email notification failure');
         // Don't throw error - task creation should still succeed even if notifications fail
       }
+    } else {
+      console.log('ℹ️ Service: No assigned users, skipping email notifications');
     }
 
     return populatedTask;
@@ -368,6 +419,9 @@ export class TaskService {
       }
     }
     
+    // Get the original task to compare assignments BEFORE updating
+    const originalTask = await Task.findById(id).populate('assignedTo', 'name email profilePicture');
+    
     const updatedTask = await Task.findOneAndUpdate({ _id: id, userId }, filteredUpdateData, { new: true });
     
     if (updatedTask) {
@@ -386,14 +440,38 @@ export class TaskService {
       // Send email notifications to newly assigned users
       if (updateData.assignedTo && updateData.assignedTo.length > 0) {
         try {
-          const EmailService = require('./email-service').EmailService;
+          console.log('🔄 Service: Attempting to send email notifications...');
+          
+          // Import and initialize email service with error handling
+          let EmailService;
+          try {
+            EmailService = require('./email-service').EmailService;
+          } catch (importError) {
+            console.error('❌ Error importing EmailService:', importError);
+            console.log('ℹ️ Service: Skipping email notifications due to import error');
+            return populatedTask;
+          }
+          
           const emailService = new EmailService();
+          
+          // Check if email service is properly initialized
+          if (!emailService || typeof emailService.sendTaskAssignmentNotification !== 'function') {
+            console.log('⚠️ Service: Email service not properly initialized, skipping notifications');
+            return populatedTask;
+          }
           
           // Get the user who updated the task
           const taskUpdater = await User.findById(userId);
+          if (!taskUpdater) {
+            console.log('⚠️ Service: Task updater not found, skipping email notifications');
+            return populatedTask;
+          }
           
-          // Get the original task to compare assignments
-          const originalTask = await Task.findById(id).populate('assignedTo', 'name email profilePicture');
+          console.log('🔄 Service: Task updater found:', { 
+            updaterId: taskUpdater._id, 
+            updaterName: taskUpdater.name,
+            updaterEmail: taskUpdater.email 
+          });
           
           if (originalTask && populatedTask) {
             const originalAssignedEmails = Array.isArray(originalTask.assignedTo) 
@@ -404,22 +482,60 @@ export class TaskService {
             // Find newly assigned users
             const newlyAssignedEmails = newAssignedEmails.filter(email => !originalAssignedEmails.includes(email));
             
-            for (const email of newlyAssignedEmails) {
-              const assignedUser = await User.findOne({ email });
-              if (assignedUser && assignedUser.email) {
-                await emailService.sendTaskAssignmentNotification({
-                  task: populatedTask,
-                  assignedUser,
-                  assignedBy: taskUpdater
-                });
-                console.log(`✅ Task assignment notification sent to ${assignedUser.email}`);
+            console.log('🔄 Service: Email notification analysis:', {
+              originalAssignedEmails,
+              newAssignedEmails,
+              newlyAssignedEmails,
+              originalTaskId: originalTask._id,
+              populatedTaskId: populatedTask._id
+            });
+            
+            if (newlyAssignedEmails.length === 0) {
+              console.log('ℹ️ Service: No new assignments found, skipping email notifications');
+            } else {
+              console.log(`🔄 Service: Sending notifications to ${newlyAssignedEmails.length} newly assigned users`);
+              
+              for (const email of newlyAssignedEmails) {
+                try {
+                  console.log(`🔄 Service: Processing email notification for: ${email}`);
+                  const assignedUser = await User.findOne({ email });
+                  if (assignedUser && assignedUser.email) {
+                    console.log(`🔄 Service: Found assigned user:`, { 
+                      userId: assignedUser._id, 
+                      userName: assignedUser.name,
+                      userEmail: assignedUser.email 
+                    });
+                    
+                    const notificationResult = await emailService.sendTaskAssignmentNotification({
+                      task: populatedTask,
+                      assignedUser,
+                      assignedBy: taskUpdater
+                    });
+                    
+                    if (notificationResult) {
+                      console.log(`✅ Task assignment notification sent to ${assignedUser.email}`);
+                    } else {
+                      console.log(`❌ Failed to send notification to ${assignedUser.email}`);
+                    }
+                  } else {
+                    console.log(`❌ Service: User not found for email: ${email}`);
+                  }
+                } catch (userError) {
+                  console.error(`❌ Error processing email notification for user ${email}:`, userError);
+                  // Continue with other users even if one fails
+                }
               }
             }
+          } else {
+            console.log('❌ Service: Missing originalTask or populatedTask for email notifications');
           }
         } catch (error) {
           console.error('❌ Error sending task assignment notifications:', error);
+          console.log('ℹ️ Service: Task update will continue despite email notification failure');
           // Don't throw error - task update should still succeed even if notifications fail
         }
+      } else {
+        console.log('ℹ️ Service: No assignedTo data provided, skipping email notifications');
       }
       
       return populatedTask;

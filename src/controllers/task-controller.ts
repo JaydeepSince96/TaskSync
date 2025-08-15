@@ -283,7 +283,7 @@ export class TaskController {
         return;
       }
 
-      const { title, label, startDate, dueDate, assignedTo } = req.body;
+      const { title, label, startDate, dueDate, description, assignedTo } = req.body;
       
       if (!dueDate || !startDate) {
         res.status(400).json({ 
@@ -361,7 +361,7 @@ export class TaskController {
         return;
       }
 
-      const task = await this.taskService.createTask(userId, title, label, parsedStartDate, parsedDueDate, assignedTo);
+      const task = await this.taskService.createTask(userId, title, label, parsedStartDate, parsedDueDate, description, assignedTo);
 
       // Schedule notifications for the new task
       try {
