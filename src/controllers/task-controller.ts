@@ -95,6 +95,97 @@ export class TaskController {
     }
   };
 
+  // Get tasks assigned to the current user
+  GetAssignedTasks: RequestHandler = async (req, res) => {
+    try {
+      console.log("GetAssignedTasks endpoint hit");
+      const userId = getUserId(req);
+      
+      console.log("User ID from request:", userId);
+      
+      if (!userId) {
+        console.log("No user ID found - authentication required");
+        res.status(401).json({ 
+          success: false, 
+          message: "Authentication required" 
+        });
+        return;
+      }
+
+      console.log("Fetching assigned tasks for user:", userId);
+      const assignedTasks = await this.taskService.getAssignedTasks(userId);
+      
+      console.log("Assigned tasks fetched successfully, count:", assignedTasks?.length || 0);
+      
+      if (!assignedTasks || assignedTasks.length === 0) {
+        res.status(200).json({ 
+          success: true, 
+          data: [],
+          message: "No assigned tasks found" 
+        });
+        return;
+      }
+      
+      const formattedTasks = assignedTasks.map(task => this.formatTaskResponse(task));
+      console.log("Assigned tasks formatted successfully");
+      res.status(200).json({ success: true, data: formattedTasks });
+    } catch (error) {
+      console.error("Error in GetAssignedTasks:", error);
+      res.status(500).json({
+        success: false,
+        message: `Error fetching assigned tasks: ${error}`,
+      });
+    }
+  };
+
+  // Get all user tasks (both created and assigned)
+  GetAllUserTasks: RequestHandler = async (req, res) => {
+    try {
+      console.log("GetAllUserTasks endpoint hit");
+      const userId = getUserId(req);
+      
+      console.log("User ID from request:", userId);
+      
+      if (!userId) {
+        console.log("No user ID found - authentication required");
+        res.status(401).json({ 
+          success: false, 
+          message: "Authentication required" 
+        });
+        return;
+      }
+
+      console.log("Fetching all user tasks for user:", userId);
+      const { created, assigned } = await this.taskService.getAllUserTasks(userId);
+      
+      console.log("All user tasks fetched successfully:", {
+        createdCount: created?.length || 0,
+        assignedCount: assigned?.length || 0
+      });
+      
+      const formattedCreatedTasks = created.map(task => this.formatTaskResponse(task));
+      const formattedAssignedTasks = assigned.map(task => this.formatTaskResponse(task));
+      
+      console.log("All user tasks formatted successfully");
+      res.status(200).json({ 
+        success: true, 
+        data: {
+          created: formattedCreatedTasks,
+          assigned: formattedAssignedTasks,
+          totalCreated: formattedCreatedTasks.length,
+          totalAssigned: formattedAssignedTasks.length,
+          totalTasks: formattedCreatedTasks.length + formattedAssignedTasks.length
+        }
+      });
+    } catch (error) {
+      console.error("Error in GetAllUserTasks:", error);
+      res.status(500).json({
+        success: false,
+        message: `Error fetching all user tasks: ${error}`,
+      });
+    }
+  };
+
   // Get single task by ID
   GetTaskById: RequestHandler = async (req, res) => {
     try {

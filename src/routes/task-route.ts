@@ -30,6 +30,8 @@ taskRouter.use("/stats", statsRouter);
 
 // IMPORTANT: Place the "/" route BEFORE "/:id" route to avoid conflicts
 taskRouter.get("/", taskController.GetAllTask);
+taskRouter.get("/assigned", taskController.GetAssignedTasks);
+taskRouter.get("/all", taskController.GetAllUserTasks);
 taskRouter.get("/:id", mongoIdValidation, handleValidationErrors, taskController.GetTaskById);
 taskRouter.post("/", createTaskValidation, handleValidationErrors, taskController.CreateNewTask);
 taskRouter.put("/:id", updateTaskValidation, handleValidationErrors, taskController.UpdateTask);

@@ -42,6 +42,50 @@ export class TaskService {
     return tasks;
   }
 
+  // Get tasks assigned to a specific user
+  async getAssignedTasks(userId: string): Promise<ITask[]> {
+    console.log('🔄 Service: Getting assigned tasks for user:', { userId });
+    
+    const tasks = await Task.find({ assignedTo: userId })
+      .populate('assignedTo', 'name email profilePicture')
+      .populate('userId', 'name email profilePicture')
+      .sort({ dueDate: 1 });
+    
+    console.log('✅ Service: Assigned tasks fetched:', { 
+      totalAssignedTasks: tasks.length,
+      assignedTasksDetails: tasks.map(t => ({
+        taskId: t._id,
+        title: t.title,
+        createdBy: t.userId,
+        assignedTo: t.assignedTo,
+        assignedToLength: Array.isArray(t.assignedTo) ? t.assignedTo.length : 0
+      }))
+    });
+    
+    return tasks;
+  }
+
+  // Get all tasks (both created and assigned) for a specific user
+  async getAllUserTasks(userId: string): Promise<{ created: ITask[], assigned: ITask[] }> {
+    console.log('🔄 Service: Getting all user tasks (created and assigned):', { userId });
+    
+    const [createdTasks, assignedTasks] = await Promise.all([
+      this.getAllTask(userId),
+      this.getAssignedTasks(userId)
+    ]);
+    
+    console.log('✅ Service: All user tasks fetched:', { 
+      createdTasksCount: createdTasks.length,
+      assignedTasksCount: assignedTasks.length,
+      totalTasks: createdTasks.length + assignedTasks.length
+    });
+    
+    return {
+      created: createdTasks,
+      assigned: assignedTasks
+    };
+  }
+
   // Get single task by ID for a specific user
   async getTaskById(id: string, userId: string): Promise<ITask | null> {
     try {
