@@ -89,8 +89,15 @@ export class TaskService {
   // Get single task by ID for a specific user
   async getTaskById(id: string, userId: string): Promise<ITask | null> {
     try {
-      return await Task.findOne({ _id: id, userId })
-        .populate('assignedTo', 'name email profilePicture');
+      return await Task.findOne({
+        _id: id,
+        $or: [
+          { userId: userId }, // Tasks created by the user
+          { assignedTo: userId } // Tasks assigned to the user
+        ]
+      })
+        .populate('assignedTo', 'name email profilePicture')
+        .populate('userId', 'name email profilePicture');
     } catch (error) {
       console.error('Error fetching task by ID:', error);
       throw new Error('Invalid task ID format');
@@ -422,7 +429,13 @@ export class TaskService {
     // Get the original task to compare assignments BEFORE updating
     const originalTask = await Task.findById(id).populate('assignedTo', 'name email profilePicture');
     
-    const updatedTask = await Task.findOneAndUpdate({ _id: id, userId }, filteredUpdateData, { new: true });
+    const updatedTask = await Task.findOneAndUpdate({
+      _id: id,
+      $or: [
+        { userId: userId }, // Tasks created by the user
+        { assignedTo: userId } // Tasks assigned to the user
+      ]
+    }, filteredUpdateData, { new: true });
     
     if (updatedTask) {
       // Populate assignedTo with user details
@@ -548,8 +561,14 @@ export class TaskService {
   async deleteTask(id: string, userId: string): Promise<void> {
     // First delete all subtasks associated with this task
     await this.subtaskService.deleteSubtasksByTaskId(userId, id);
-    // Then delete the main task
-    await Task.findOneAndDelete({ _id: id, userId });
+    // Then delete the main task - check both created and assigned tasks
+    await Task.findOneAndDelete({
+      _id: id,
+      $or: [
+        { userId: userId }, // Tasks created by the user
+        { assignedTo: userId } // Tasks assigned to the user
+      ]
+    });
   }
 
   // Toggle task completion status for a specific user
@@ -557,11 +576,17 @@ export class TaskService {
     try {
       console.log(`🎯 Backend: toggleTaskCompletion called for task ${id}, user ${userId}`);
       
-      // Find the current task
-      const currentTask = await Task.findOne({ _id: id, userId });
+      // Find the current task - check both created and assigned tasks
+      const currentTask = await Task.findOne({
+        _id: id,
+        $or: [
+          { userId: userId }, // Tasks created by the user
+          { assignedTo: userId } // Tasks assigned to the user
+        ]
+      });
       
       if (!currentTask) {
-        console.log(`🎯 Backend: Task ${id} not found`);
+        console.log(`🎯 Backend: Task ${id} not found for user ${userId}`);
         return null;
       }
 
@@ -588,7 +613,13 @@ export class TaskService {
       
       // Update the task with the new completion status
       const updatedTask = await Task.findOneAndUpdate(
-        { _id: id, userId },
+        { 
+          _id: id,
+          $or: [
+            { userId: userId }, // Tasks created by the user
+            { assignedTo: userId } // Tasks assigned to the user
+          ]
+        },
         { completed: newCompletedStatus },
         { new: true }
       );

@@ -13,10 +13,16 @@ export class SubtaskService {
   // Helper method to automatically manage task completion based on subtasks
   private async autoManageTaskCompletion(userId: string, taskId: string): Promise<void> {
     try {
-      const task = await Task.findOne({ _id: taskId, userId });
+      const task = await Task.findOne({
+        _id: taskId,
+        $or: [
+          { userId: userId }, // Tasks created by the user
+          { assignedTo: userId } // Tasks assigned to the user
+        ]
+      });
       if (!task) return;
 
-      const subtasks = await Subtask.find({ userId, taskId });
+      const subtasks = await Subtask.find({ taskId });
       const total = subtasks.length;
       const completed = subtasks.filter((st: ISubtask) => st.completed).length;
 
@@ -50,10 +56,16 @@ export class SubtaskService {
     startDate?: Date,
     endDate?: Date
   ): Promise<ISubtask> {
-    // Verify the task exists and belongs to the user
-    const task = await Task.findOne({ _id: taskId, userId });
+    // Verify the task exists and user has access (either created or assigned)
+    const task = await Task.findOne({
+      _id: taskId,
+      $or: [
+        { userId: userId }, // Tasks created by the user
+        { assignedTo: userId } // Tasks assigned to the user
+      ]
+    });
     if (!task) {
-      throw new Error('Task not found or does not belong to user');
+      throw new Error('Task not found or access denied');
     }
 
     const subtask = new Subtask({
@@ -80,18 +92,42 @@ export class SubtaskService {
 
   // Get all subtasks for a specific task and user
   async getSubtasksByTaskId(userId: string, taskId: string): Promise<ISubtask[]> {
-    // Verify the task exists and belongs to the user
-    const task = await Task.findOne({ _id: taskId, userId });
+    // Verify the task exists and user has access (either created or assigned)
+    const task = await Task.findOne({
+      _id: taskId,
+      $or: [
+        { userId: userId }, // Tasks created by the user
+        { assignedTo: userId } // Tasks assigned to the user
+      ]
+    });
     if (!task) {
-      throw new Error('Task not found or does not belong to user');
+      throw new Error('Task not found or access denied');
     }
 
-    return await Subtask.find({ userId, taskId }).sort({ createdAt: 1 });
+    return await Subtask.find({ taskId }).sort({ createdAt: 1 });
   }
 
   // Get a specific subtask by ID for a user
   async getSubtaskById(userId: string, subtaskId: string): Promise<ISubtask | null> {
-    return await Subtask.findOne({ _id: subtaskId, userId });
+    const subtask = await Subtask.findOne({ _id: subtaskId });
+    if (!subtask) {
+      return null;
+    }
+
+    // Check if user has access to this subtask
+    const task = await Task.findOne({
+      _id: subtask.taskId,
+      $or: [
+        { userId: userId }, // Tasks created by the user
+        { assignedTo: userId } // Tasks assigned to the user
+      ]
+    });
+
+    if (!task) {
+      return null; // User doesn't have access
+    }
+
+    return subtask;
   }
 
   // Update a subtask for a specific user
@@ -100,8 +136,26 @@ export class SubtaskService {
     description?: string;
     completed?: boolean;
   }): Promise<ISubtask | null> {
+    // First check if user has access to this subtask
+    const subtask = await Subtask.findOne({ _id: subtaskId });
+    if (!subtask) {
+      return null;
+    }
+
+    const task = await Task.findOne({
+      _id: subtask.taskId,
+      $or: [
+        { userId: userId }, // Tasks created by the user
+        { assignedTo: userId } // Tasks assigned to the user
+      ]
+    });
+
+    if (!task) {
+      throw new Error("Access denied: You don't have permission to modify this subtask");
+    }
+
     const updatedSubtask = await Subtask.findOneAndUpdate(
-      { _id: subtaskId, userId },
+      { _id: subtaskId },
       updateData,
       { new: true }
     );
@@ -116,9 +170,23 @@ export class SubtaskService {
 
   // Toggle subtask completion status for a specific user
   async toggleSubtask(userId: string, subtaskId: string): Promise<ISubtask | null> {
-    const subtask = await Subtask.findOne({ _id: subtaskId, userId });
+    // First find the subtask
+    const subtask = await Subtask.findOne({ _id: subtaskId });
     if (!subtask) {
       return null;
+    }
+
+    // Check if user has access to this subtask (either created the task or is assigned to it)
+    const task = await Task.findOne({
+      _id: subtask.taskId,
+      $or: [
+        { userId: userId }, // Tasks created by the user
+        { assignedTo: userId } // Tasks assigned to the user
+      ]
+    });
+
+    if (!task) {
+      throw new Error("Access denied: You don't have permission to modify this subtask");
     }
 
     subtask.completed = !subtask.completed;
@@ -132,19 +200,43 @@ export class SubtaskService {
 
   // Delete a subtask for a specific user
   async deleteSubtask(userId: string, subtaskId: string): Promise<boolean> {
-    const result = await Subtask.deleteOne({ _id: subtaskId, userId });
+    // First check if user has access to this subtask
+    const subtask = await Subtask.findOne({ _id: subtaskId });
+    if (!subtask) {
+      return false;
+    }
+
+    const task = await Task.findOne({
+      _id: subtask.taskId,
+      $or: [
+        { userId: userId }, // Tasks created by the user
+        { assignedTo: userId } // Tasks assigned to the user
+      ]
+    });
+
+    if (!task) {
+      throw new Error("Access denied: You don't have permission to delete this subtask");
+    }
+
+    const result = await Subtask.deleteOne({ _id: subtaskId });
     return result.deletedCount > 0;
   }
 
   // Get subtask statistics for a specific task and user
   async getSubtaskStats(userId: string, taskId: string): Promise<SubtaskStats> {
-    // Verify the task exists and belongs to the user
-    const task = await Task.findOne({ _id: taskId, userId });
+    // Verify the task exists and user has access (either created or assigned)
+    const task = await Task.findOne({
+      _id: taskId,
+      $or: [
+        { userId: userId }, // Tasks created by the user
+        { assignedTo: userId } // Tasks assigned to the user
+      ]
+    });
     if (!task) {
-      throw new Error('Task not found or does not belong to user');
+      throw new Error('Task not found or access denied');
     }
 
-    const subtasks = await Subtask.find({ userId, taskId });
+    const subtasks = await Subtask.find({ taskId });
     const total = subtasks.length;
     const completed = subtasks.filter((subtask: ISubtask) => subtask.completed).length;
     const pending = total - completed;
@@ -185,7 +277,20 @@ export class SubtaskService {
 
   // Delete all subtasks for a specific task
   async deleteSubtasksByTaskId(userId: string, taskId: string): Promise<number> {
-    const result = await Subtask.deleteMany({ userId, taskId });
+    // First check if user has access to this task
+    const task = await Task.findOne({
+      _id: taskId,
+      $or: [
+        { userId: userId }, // Tasks created by the user
+        { assignedTo: userId } // Tasks assigned to the user
+      ]
+    });
+
+    if (!task) {
+      throw new Error("Access denied: You don't have permission to delete subtasks for this task");
+    }
+
+    const result = await Subtask.deleteMany({ taskId });
     return result.deletedCount;
   }
 

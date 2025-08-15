@@ -45,7 +45,10 @@ export class StatsService {
     const { period, startDate, endDate, year, month, week } = options;
     const now = new Date();
     let matchCondition: any = {
-      userId: new Types.ObjectId(userId) // Convert string to ObjectId for proper matching
+      $or: [
+        { userId: new Types.ObjectId(userId) }, // Tasks created by the user
+        { assignedTo: new Types.ObjectId(userId) } // Tasks assigned to the user
+      ]
     };
 
     console.log('🔍 buildDateMatchCondition - userId:', userId, 'type:', typeof userId);
