@@ -15,6 +15,7 @@ import { invitationRouter } from "./routes/invitation-route";
 import { paymentRouter } from "./routes/payment-route";
 import whatsappRouter from "./routes/whatsapp-route";
 import taskReminderRouter from "./routes/task-reminder-route";
+import contactRouter from "./routes/contact-route";
 import { initializeGlobalNotificationScheduler } from "./services/notification-scheduler";
 import { initializeGlobalTaskReminderScheduler } from "./services/task-reminder-scheduler";
 import rateLimit from "express-rate-limit";
@@ -241,6 +242,7 @@ app.use("/api/invitations", invitationRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/whatsapp", whatsappRouter);
 app.use("/api/task-reminders", taskReminderRouter);
+app.use("/api/contact", contactRouter);
 
 // Initialize notification schedulers
 let notificationScheduler: any;
