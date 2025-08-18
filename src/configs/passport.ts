@@ -12,6 +12,11 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
     callbackURL: '/api/auth/google/callback'
   }, async (accessToken, refreshToken, profile, done) => {
     try {
+      // Validate profile data
+      if (!profile.emails || !profile.emails[0] || !profile.emails[0].value) {
+        return done(new Error('Email is required for Google authentication'), undefined);
+      }
+
       // Check if user already exists with this Google ID
       let existingUser = await User.findOne({ googleId: profile.id });
       
@@ -25,36 +30,35 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
       }
 
       // Check if user exists with same email
-      const emailUser = await User.findOne({ email: profile.emails?.[0]?.value });
+      const emailUser = await User.findOne({ email: profile.emails[0].value });
     
-    if (emailUser) {
-      // Link Google account to existing user
-      emailUser.googleId = profile.id;
-      emailUser.profilePicture = profile.photos?.[0]?.value || emailUser.profilePicture;
-      emailUser.isEmailVerified = true;
-      await emailUser.save();
-      
-      return done(null, emailUser);
+      if (emailUser) {
+        // Link Google account to existing user
+        emailUser.googleId = profile.id;
+        emailUser.profilePicture = profile.photos?.[0]?.value || emailUser.profilePicture;
+        emailUser.isEmailVerified = true;
+        await emailUser.save();
+        
+        return done(null, emailUser);
+      }
+
+      // Create new user
+      const newUser = new User({
+        googleId: profile.id,
+        email: profile.emails[0].value,
+        name: profile.displayName || `${profile.name?.givenName || ''} ${profile.name?.familyName || ''}`.trim() || 'Google User',
+        profilePicture: profile.photos?.[0]?.value,
+        isEmailVerified: true,
+        authProvider: 'google'
+      });
+
+      await newUser.save();
+      done(null, newUser);
+    } catch (error) {
+      console.error('Google OAuth Error:', error);
+      done(error, false);
     }
-
-    // Create new user
-    const newUser = new User({
-      googleId: profile.id,
-      email: profile.emails?.[0]?.value,
-      firstName: profile.name?.givenName || '',
-      lastName: profile.name?.familyName || '',
-      profilePicture: profile.photos?.[0]?.value,
-      isEmailVerified: true,
-      authProvider: 'google'
-    });
-
-    await newUser.save();
-    done(null, newUser);
-  } catch (error) {
-    console.error('Google OAuth Error:', error);
-    done(error, false);
-  }
-}));
+  }));
 } else {
   console.warn('Google OAuth credentials not provided. Google authentication will be disabled.');
 }

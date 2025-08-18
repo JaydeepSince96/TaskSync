@@ -18,9 +18,9 @@ import { InvitationService } from "../services/invitation-service";
 import { SubscriptionService } from "../services/subscription-service";
 import { OTPService } from "../services/otp-service";
 
-const authService = new AuthService();
-const invitationService = new InvitationService();
 const subscriptionService = new SubscriptionService();
+const authService = new AuthService(subscriptionService);
+const invitationService = new InvitationService();
 const otpService = new OTPService();
 const authController = new AuthController(authService, invitationService, subscriptionService, otpService);
 
@@ -73,7 +73,7 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
 
   authRouter.get("/google/callback",
     passport.authenticate("google", { 
-      failureRedirect: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/login?error=auth_failed`,
+      failureRedirect: `${process.env.FRONTEND_URL || 'https://tasksync.org'}/login?error=auth_failed`,
       session: false 
     }),
     authController.googleCallback

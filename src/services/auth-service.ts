@@ -3,6 +3,7 @@ import { User, IUser } from "../models/user-model";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET, JWT_REFRESH_SECRET, JWT_EXPIRE, JWT_REFRESH_EXPIRE } from "../configs/env";
 import { Types } from "mongoose";
+import { SubscriptionService } from "./subscription-service";
 
 export interface RegisterData {
   name: string;
@@ -22,6 +23,10 @@ export interface AuthResponse {
     user: Partial<IUser>;
     accessToken: string;
     refreshToken: string;
+    isFirstTimeUser?: boolean;
+    isFirstTimeGoogleAuth?: boolean;
+    hasActiveSubscription?: boolean;
+    needsPaymentRedirect?: boolean;
   };
 }
 
@@ -35,6 +40,8 @@ export interface RefreshTokenResponse {
 }
 
 export class AuthService {
+  constructor(private subscriptionService: SubscriptionService) {}
+
   // Register new user
   async register(userData: RegisterData): Promise<AuthResponse> {
     try {
@@ -242,6 +249,14 @@ export class AuthService {
   // Google OAuth helper (to be used with passport)
   async googleOAuth(profile: any): Promise<AuthResponse> {
     try {
+      // Validate profile data
+      if (!profile.emails || !profile.emails[0] || !profile.emails[0].value) {
+        return {
+          success: false,
+          message: "Email is required for Google authentication"
+        };
+      }
+
       let user = await User.findOne({ 
         $or: [
           { googleId: profile.id },
@@ -249,23 +264,36 @@ export class AuthService {
         ]
       });
 
+      let isFirstTimeUser = false;
+      let isFirstTimeGoogleAuth = false;
+
       if (user) {
-        // Update Google ID if user exists but doesn't have one
+        console.log('Google OAuth: User exists:', user.email, 'Google ID:', user.googleId);
+        // Check if this is the first time using Google Auth
         if (!user.googleId) {
+          // User exists but hasn't used Google Auth before
+          console.log('Google OAuth: First time using Google Auth for existing user');
           user.googleId = profile.id;
           user.isEmailVerified = true;
           await user.save();
+          isFirstTimeGoogleAuth = true;
+        } else {
+          console.log('Google OAuth: User has used Google Auth before');
         }
       } else {
-        // Create new user
+        // Create completely new user
+        console.log('Google OAuth: Creating new user');
         user = new User({
-          name: profile.displayName,
+          name: profile.displayName || `${profile.name?.givenName || ''} ${profile.name?.familyName || ''}`.trim() || 'Google User',
           email: profile.emails[0].value,
           googleId: profile.id,
           isEmailVerified: true,
-          profilePicture: profile.photos[0]?.value || null
+          profilePicture: profile.photos?.[0]?.value || null
         });
         await user.save();
+        isFirstTimeUser = true;
+        isFirstTimeGoogleAuth = true;
+        console.log('Google OAuth: New user created:', user.email);
       }
 
       // Generate tokens
@@ -276,13 +304,31 @@ export class AuthService {
       user.lastLogin = new Date();
       await user.save();
 
+      // Check if user has active subscription
+      const hasActiveSubscription = await this.subscriptionService.hasActiveSubscription((user._id as any).toString());
+
+      // Check if user needs to be redirected to payment page
+      // This includes: new users, users without active subscription, users with expired trial
+      const needsPaymentRedirect = isFirstTimeUser || isFirstTimeGoogleAuth || !hasActiveSubscription;
+
+      console.log('Google OAuth: Final flags:', {
+        isFirstTimeUser,
+        isFirstTimeGoogleAuth,
+        hasActiveSubscription,
+        needsPaymentRedirect
+      });
+
       return {
         success: true,
         message: "Google authentication successful",
         data: {
           user: user.toJSON(),
           accessToken,
-          refreshToken
+          refreshToken,
+          isFirstTimeUser,
+          isFirstTimeGoogleAuth,
+          hasActiveSubscription,
+          needsPaymentRedirect
         }
       };
     } catch (error: any) {

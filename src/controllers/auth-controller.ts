@@ -428,11 +428,33 @@ export class AuthController {
     try {
       const user = req.user as any;
       if (!user) {
+        console.log('Google callback: No user found in request');
         res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3001'}/login?error=auth_failed`);
         return;
       }
-      const result = await this.authService.googleOAuth(user);
+      
+      console.log('Google callback: Processing user:', user.email);
+      
+      // Create a profile-like object from the user data
+      const profile = {
+        id: user.googleId,
+        emails: [{ value: user.email }],
+        displayName: user.name,
+        photos: user.profilePicture ? [{ value: user.profilePicture }] : []
+      };
+      
+      const result = await this.authService.googleOAuth(profile);
+      
       if (result.success && result.data) {
+        console.log('Google callback: Auth successful, user data:', {
+          email: result.data.user.email,
+          isFirstTimeUser: result.data.isFirstTimeUser,
+          isFirstTimeGoogleAuth: result.data.isFirstTimeGoogleAuth,
+          hasActiveSubscription: result.data.hasActiveSubscription,
+          needsPaymentRedirect: result.data.needsPaymentRedirect
+        });
+        
+        // Set tokens as cookies for server-side access
         res.cookie('accessToken', result.data.accessToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
@@ -445,13 +467,43 @@ export class AuthController {
           sameSite: 'lax',
           maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
-        res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard?auth=success`);
+
+        // Also set tokens as non-httpOnly cookies for frontend access
+        res.cookie('frontend_accessToken', result.data.accessToken, {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 15 * 60 * 1000 // 15 minutes
+        });
+        res.cookie('frontend_refreshToken', result.data.refreshToken, {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
+        // Determine redirect based on user status
+        if (result.data.needsPaymentRedirect) {
+          // User needs to go to payment page (new user, first-time Google Auth, or no active subscription)
+          if (result.data.isFirstTimeUser || result.data.isFirstTimeGoogleAuth) {
+            console.log('Google callback: Redirecting to login page (new user or first-time Google Auth)');
+            res.redirect(`${process.env.FRONTEND_URL || 'https://tasksync.org'}/login?auth=success&new_user=true`);
+          } else {
+            console.log('Google callback: Redirecting to login page (no active subscription)');
+            res.redirect(`${process.env.FRONTEND_URL || 'https://tasksync.org'}/login?auth=success&subscription_expired=true`);
+          }
+        } else {
+          // User has active subscription - redirect to dashboard
+          console.log('Google callback: Redirecting to dashboard (active subscription)');
+          res.redirect(`${process.env.FRONTEND_URL || 'https://tasksync.org'}/dashboard?auth=success`);
+        }
       } else {
-        res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3001'}/login?error=auth_failed`);
+        console.log('Google callback: Auth failed:', result.message);
+        res.redirect(`${process.env.FRONTEND_URL || 'https://tasksync.org'}/login?error=auth_failed`);
       }
     } catch (error: any) {
       console.error('Google callback error:', error);
-      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3001'}/login?error=server_error`);
+      res.redirect(`${process.env.FRONTEND_URL || 'https://tasksync.org'}/login?error=server_error`);
     }
   };
 
