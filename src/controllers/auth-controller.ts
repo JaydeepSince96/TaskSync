@@ -459,12 +459,16 @@ export class AuthController {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
+          domain: process.env.NODE_ENV === 'production' ? '.tasksync.org' : undefined,
+          path: '/',
           maxAge: 15 * 60 * 1000 // 15 minutes
         });
         res.cookie('refreshToken', result.data.refreshToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
+          domain: process.env.NODE_ENV === 'production' ? '.tasksync.org' : undefined,
+          path: '/',
           maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
@@ -473,12 +477,16 @@ export class AuthController {
           httpOnly: false,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
+          domain: process.env.NODE_ENV === 'production' ? '.tasksync.org' : undefined,
+          path: '/',
           maxAge: 15 * 60 * 1000 // 15 minutes
         });
         res.cookie('frontend_refreshToken', result.data.refreshToken, {
           httpOnly: false,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
+          domain: process.env.NODE_ENV === 'production' ? '.tasksync.org' : undefined,
+          path: '/',
           maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
