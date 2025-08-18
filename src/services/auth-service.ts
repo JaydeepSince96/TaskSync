@@ -308,8 +308,9 @@ export class AuthService {
       const hasActiveSubscription = await this.subscriptionService.hasActiveSubscription((user._id as any).toString());
 
       // Check if user needs to be redirected to payment page
-      // This includes: new users, users without active subscription, users with expired trial
-      const needsPaymentRedirect = isFirstTimeUser || isFirstTimeGoogleAuth || !hasActiveSubscription;
+      // This includes: new users, users without active subscription
+      // Note: isFirstTimeGoogleAuth alone should not trigger payment redirect if user has active subscription
+      const needsPaymentRedirect = isFirstTimeUser || !hasActiveSubscription;
 
       console.log('Google OAuth: Final flags:', {
         isFirstTimeUser,

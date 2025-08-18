@@ -492,9 +492,9 @@ export class AuthController {
 
         // Determine redirect based on user status
         if (result.data.needsPaymentRedirect) {
-          // User needs to go to payment page (new user, first-time Google Auth, or no active subscription)
-          if (result.data.isFirstTimeUser || result.data.isFirstTimeGoogleAuth) {
-            console.log('Google callback: Redirecting to login page (new user or first-time Google Auth)');
+          // User needs to go to payment page (new user or no active subscription)
+          if (result.data.isFirstTimeUser) {
+            console.log('Google callback: Redirecting to login page (new user)');
             res.redirect(`${process.env.FRONTEND_URL || 'https://tasksync.org'}/login?auth=success&new_user=true`);
           } else {
             console.log('Google callback: Redirecting to login page (no active subscription)');
