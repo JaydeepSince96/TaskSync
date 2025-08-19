@@ -428,12 +428,9 @@ export class AuthController {
     try {
       const user = req.user as any;
       if (!user) {
-        console.log('Google callback: No user found in request');
         res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3001'}/login?error=auth_failed`);
         return;
       }
-      
-      console.log('Google callback: Processing user:', user.email);
       
       // Create a profile-like object from the user data
       const profile = {
@@ -446,13 +443,6 @@ export class AuthController {
       const result = await this.authService.googleOAuth(profile);
       
       if (result.success && result.data) {
-        console.log('Google callback: Auth successful, user data:', {
-          email: result.data.user.email,
-          isFirstTimeUser: result.data.isFirstTimeUser,
-          isFirstTimeGoogleAuth: result.data.isFirstTimeGoogleAuth,
-          hasActiveSubscription: result.data.hasActiveSubscription,
-          needsPaymentRedirect: result.data.needsPaymentRedirect
-        });
         
         // Set tokens as cookies for server-side access
         res.cookie('accessToken', result.data.accessToken, {
@@ -494,19 +484,15 @@ export class AuthController {
         if (result.data.needsPaymentRedirect) {
           // User needs to go to payment page (new user or no active subscription)
           if (result.data.isFirstTimeUser) {
-            console.log('Google callback: Redirecting to login page (new user)');
             res.redirect(`${process.env.FRONTEND_URL || 'https://tasksync.org'}/login?auth=success&new_user=true`);
           } else {
-            console.log('Google callback: Redirecting to login page (no active subscription)');
             res.redirect(`${process.env.FRONTEND_URL || 'https://tasksync.org'}/login?auth=success&subscription_expired=true`);
           }
         } else {
           // User has active subscription - redirect to dashboard
-          console.log('Google callback: Redirecting to dashboard (active subscription)');
           res.redirect(`${process.env.FRONTEND_URL || 'https://tasksync.org'}/dashboard?auth=success`);
         }
       } else {
-        console.log('Google callback: Auth failed:', result.message);
         res.redirect(`${process.env.FRONTEND_URL || 'https://tasksync.org'}/login?error=auth_failed`);
       }
     } catch (error: any) {

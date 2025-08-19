@@ -2,6 +2,7 @@
 import express from "express";
 import { TaskController } from "../controllers/task-controller";
 import { TaskService } from "../services/task-service";
+import { SubtaskService } from "../services/subtask-service";
 import { statsRouter } from "./stats-route";
 import { authenticateToken } from "../middleware/auth-middleware";
 import {
@@ -13,12 +14,17 @@ import {
 } from "../middleware/validation-middleware";
 
 const taskService = new TaskService();
-const taskController = new TaskController(taskService);
+const subtaskService = new SubtaskService();
+const taskController = new TaskController(taskService, subtaskService);
 
 const taskRouter = express.Router();
 
 // Public routes (no authentication required)
 taskRouter.get("/labels", taskController.GetLabelOptions);
+
+// Public share routes (no authentication required)
+taskRouter.get("/public/share/:taskId", taskController.GetPublicTask);
+taskRouter.get("/public/share/:taskId/subtask-stats", taskController.GetPublicSubtaskStats);
 
 // Protected routes (authentication required)
 taskRouter.use(authenticateToken); // Apply authentication to all routes below

@@ -1,7 +1,10 @@
 // src/controllers/TodoController.ts
 import { Request, Response, RequestHandler } from "express";
 import { TaskService } from "../services/task-service";
+import { SubtaskService } from "../services/subtask-service";
 import { TaskLabel } from "../models/task-model";
+import Task from "../models/task-model";
+import Subtask from "../models/subtask-model";
 import { getUserId } from "../utils/auth-types";
 import { parseDateFromDDMMYYYY, formatDateToDDMMYYYY, formatDateWithTime } from "../utils/date-utils";
 import { getGlobalNotificationScheduler } from "../services/notification-scheduler";
@@ -9,7 +12,10 @@ import { User } from "../models/user-model";
 import { WhatsAppService } from "../services/whatsapp-service";
 
 export class TaskController {
-  constructor(private taskService: TaskService) {}
+  constructor(
+    private taskService: TaskService,
+    private subtaskService: SubtaskService
+  ) {}
 
   // Helper function to format date (using DD/MM/YYYY format for consistency)
   private formatDate(date: Date): string {
@@ -55,13 +61,9 @@ export class TaskController {
   // Get all task
   GetAllTask: RequestHandler = async (req, res) => {
     try {
-      console.log("GetAllTask endpoint hit");
       const userId = getUserId(req);
       
-      console.log("User ID from request:", userId);
-      
       if (!userId) {
-        console.log("No user ID found - authentication required");
         res.status(401).json({ 
           success: false, 
           message: "Authentication required" 
@@ -69,10 +71,7 @@ export class TaskController {
         return;
       }
 
-      console.log("Fetching tasks for user:", userId);
       const todos = await this.taskService.getAllTask(userId);
-      
-      console.log("Tasks fetched successfully, count:", todos?.length || 0);
       
       if (!todos || todos.length === 0) {
         res.status(200).json({ 
@@ -84,7 +83,6 @@ export class TaskController {
       }
       
       const formattedTodos = todos.map(todo => this.formatTaskResponse(todo));
-      console.log("Tasks formatted successfully");
       res.status(200).json({ success: true, data: formattedTodos });
     } catch (error) {
       console.error("Error in GetAllTask:", error);
@@ -98,13 +96,9 @@ export class TaskController {
   // Get tasks assigned to the current user
   GetAssignedTasks: RequestHandler = async (req, res) => {
     try {
-      console.log("GetAssignedTasks endpoint hit");
       const userId = getUserId(req);
       
-      console.log("User ID from request:", userId);
-      
       if (!userId) {
-        console.log("No user ID found - authentication required");
         res.status(401).json({ 
           success: false, 
           message: "Authentication required" 
@@ -112,10 +106,7 @@ export class TaskController {
         return;
       }
 
-      console.log("Fetching assigned tasks for user:", userId);
       const assignedTasks = await this.taskService.getAssignedTasks(userId);
-      
-      console.log("Assigned tasks fetched successfully, count:", assignedTasks?.length || 0);
       
       if (!assignedTasks || assignedTasks.length === 0) {
         res.status(200).json({ 
@@ -127,7 +118,6 @@ export class TaskController {
       }
       
       const formattedTasks = assignedTasks.map(task => this.formatTaskResponse(task));
-      console.log("Assigned tasks formatted successfully");
       res.status(200).json({ success: true, data: formattedTasks });
     } catch (error) {
       console.error("Error in GetAssignedTasks:", error);
@@ -141,13 +131,9 @@ export class TaskController {
   // Get all user tasks (both created and assigned)
   GetAllUserTasks: RequestHandler = async (req, res) => {
     try {
-      console.log("GetAllUserTasks endpoint hit");
       const userId = getUserId(req);
       
-      console.log("User ID from request:", userId);
-      
       if (!userId) {
-        console.log("No user ID found - authentication required");
         res.status(401).json({ 
           success: false, 
           message: "Authentication required" 
@@ -155,18 +141,11 @@ export class TaskController {
         return;
       }
 
-      console.log("Fetching all user tasks for user:", userId);
       const { created, assigned } = await this.taskService.getAllUserTasks(userId);
-      
-      console.log("All user tasks fetched successfully:", {
-        createdCount: created?.length || 0,
-        assignedCount: assigned?.length || 0
-      });
       
       const formattedCreatedTasks = created.map(task => this.formatTaskResponse(task));
       const formattedAssignedTasks = assigned.map(task => this.formatTaskResponse(task));
       
-      console.log("All user tasks formatted successfully");
       res.status(200).json({ 
         success: true, 
         data: {
@@ -372,7 +351,6 @@ export class TaskController {
           
           if (isDeadline) {
             // For deadline tasks, send immediate notification
-            console.log(`📅 Sending immediate deadline notification for task ${task._id}`);
             
             // Get the user to send notification to
             const user = await User.findById(userId);
@@ -384,13 +362,7 @@ export class TaskController {
                 user,
                 isDeadline: true
               });
-              console.log(`✅ Immediate deadline notification sent to ${user.phoneNumber}`);
-            } else {
-              console.log('⚠️ User has no phone number for WhatsApp notifications');
             }
-          } else {
-            // For regular tasks, schedule deadline notification
-            console.log(`📅 Task ${task._id} will be checked for deadline notifications`);
           }
         }
       } catch (notificationError) {
@@ -528,11 +500,6 @@ export class TaskController {
 
       // Handle assignedTo field
       if (assignedTo !== undefined) {
-        console.log('🔄 Processing assignedTo field:', { 
-          taskId: id, 
-          assignedTo, 
-          assignedToLength: assignedTo?.length || 0 
-        });
         updateData.assignedTo = assignedTo;
       }
 
@@ -541,12 +508,6 @@ export class TaskController {
         res.status(404).json({ success: false, message: "Task not found" });
         return;
       }
-      
-      console.log('✅ Task updated successfully:', { 
-        taskId: todo._id, 
-        assignedTo: todo.assignedTo,
-        assignedToLength: todo.assignedTo?.length || 0 
-      });
       
       const formattedTodo = this.formatTaskResponse(todo);
       res.status(200).json({ success: true, data: formattedTodo });
@@ -613,6 +574,93 @@ export class TaskController {
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : "Failed to toggle task",
+      });
+    }
+  };
+
+  // Get public task data for sharing (no authentication required)
+  GetPublicTask: RequestHandler = async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      
+      if (!taskId) {
+        res.status(400).json({
+          success: false,
+          message: 'Task ID is required'
+        });
+        return;
+      }
+
+      // For public access, we need to find the task without user restriction
+      const task = await Task.findById(taskId);
+      
+      if (!task) {
+        res.status(404).json({
+          success: false,
+          message: 'Task not found'
+        });
+        return;
+      }
+
+      // Return only the necessary fields for public sharing
+      const publicTaskData = {
+        _id: task._id,
+        title: task.title,
+        completed: task.completed,
+        label: task.label,
+        startDate: task.startDate,
+        dueDate: task.dueDate,
+        createdAt: task.createdAt,
+        updatedAt: task.updatedAt,
+        assignedTo: task.assignedTo || []
+      };
+
+      res.status(200).json({
+        success: true,
+        data: publicTaskData
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  };
+
+  // Get public subtask stats for sharing (no authentication required)
+  GetPublicSubtaskStats: RequestHandler = async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      
+      if (!taskId) {
+        res.status(400).json({
+          success: false,
+          message: 'Task ID is required'
+        });
+        return;
+      }
+
+      // Get subtasks for the task (public access)
+      const subtasks = await Subtask.find({ taskId });
+      
+      const total = subtasks.length;
+      const completed = subtasks.filter((subtask: any) => subtask.completed).length;
+      const pending = total - completed;
+      const completionRate = total > 0 ? (completed / total) * 100 : 0;
+
+      res.status(200).json({
+        success: true,
+        data: {
+          total,
+          completed,
+          pending,
+          completionRate
+        }
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
       });
     }
   };
