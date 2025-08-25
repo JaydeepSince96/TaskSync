@@ -172,17 +172,64 @@ app.get("/health", (req, res) => {
   console.log(`🏥 Health check response sent successfully`);
 });
 
-// Health Check
+// Enhanced Health Check for Elastic Beanstalk
 app.get("/api/health", (req, res) => {
   console.log(`🏥 API Health check requested at ${new Date().toISOString()}`);
   
-  res.status(200).json({
-    success: true,
-    message: "Server is healthy",
-    timestamp: new Date().toISOString()
-  });
-  
-  console.log(`🏥 API Health check response sent successfully`);
+  try {
+    // Check database connection
+    const dbStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
+    
+    // Check memory usage
+    const memoryUsage = process.memoryUsage();
+    const memoryStatus = memoryUsage.heapUsed < 500 * 1024 * 1024 ? "healthy" : "high"; // 500MB threshold
+    
+    // Check uptime
+    const uptime = process.uptime();
+    const uptimeStatus = uptime > 60 ? "stable" : "starting"; // 60 seconds threshold
+    
+    // Determine overall health
+    const isHealthy = dbStatus === "connected" && memoryStatus === "healthy" && uptimeStatus === "stable";
+    
+    const healthResponse = {
+      success: true,
+      message: isHealthy ? "Server is healthy" : "Server has issues",
+      timestamp: new Date().toISOString(),
+      status: {
+        overall: isHealthy ? "healthy" : "degraded",
+        database: dbStatus,
+        memory: memoryStatus,
+        uptime: uptimeStatus
+      },
+      metrics: {
+        uptime: Math.round(uptime),
+        memory: {
+          heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024) + "MB",
+          heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024) + "MB",
+          external: Math.round(memoryUsage.external / 1024 / 1024) + "MB"
+        },
+        database: {
+          readyState: mongoose.connection.readyState,
+          host: mongoose.connection.host || "unknown"
+        }
+      }
+    };
+    
+    // Set appropriate status code
+    const statusCode = isHealthy ? 200 : 503;
+    res.status(statusCode).json(healthResponse);
+    
+    console.log(`🏥 API Health check response sent successfully - Status: ${healthResponse.status.overall}`);
+    
+  } catch (error) {
+    console.error(`🏥 Health check error:`, error);
+    res.status(503).json({
+      success: false,
+      message: "Health check failed",
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
 });
 
 // Email Service Status Check (temporary diagnostic endpoint)

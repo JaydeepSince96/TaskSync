@@ -135,6 +135,7 @@ export class SubtaskService {
     title?: string;
     description?: string;
     completed?: boolean;
+    completedAt?: Date;
   }): Promise<ISubtask | null> {
     // First check if user has access to this subtask
     const subtask = await Subtask.findOne({ _id: subtaskId });
@@ -154,9 +155,21 @@ export class SubtaskService {
       throw new Error("Access denied: You don't have permission to modify this subtask");
     }
 
+    // If completion status is being changed, update the completedAt field
+    const finalUpdateData: any = { ...updateData };
+    if (updateData.completed !== undefined) {
+      if (updateData.completed && !subtask.completed) {
+        // Marking as completed
+        finalUpdateData.completedAt = new Date();
+      } else if (!updateData.completed && subtask.completed) {
+        // Marking as incomplete
+        finalUpdateData.completedAt = undefined;
+      }
+    }
+
     const updatedSubtask = await Subtask.findOneAndUpdate(
       { _id: subtaskId },
-      updateData,
+      finalUpdateData,
       { new: true }
     );
 
@@ -190,6 +203,14 @@ export class SubtaskService {
     }
 
     subtask.completed = !subtask.completed;
+    
+    // Update completedAt field when toggling completion
+    if (subtask.completed) {
+      subtask.completedAt = new Date();
+    } else {
+      subtask.completedAt = undefined;
+    }
+    
     const updatedSubtask = await subtask.save();
 
     // Auto-manage task completion when subtask is toggled
@@ -341,6 +362,8 @@ export class SubtaskService {
     startDate: Date, 
     endDate: Date
   ): Promise<{ completed: number; total: number }> {
+    console.log(`🔍 getSubtaskStatsByDateRange - userId: ${userId}, startDate: ${startDate}, endDate: ${endDate}`);
+    
     // Query for subtasks that were either created or updated during the date range
     const baseQuery = {
       userId,
@@ -362,10 +385,35 @@ export class SubtaskService {
       ]
     };
 
+    // For completed subtasks, we need to be more specific:
+    // Count subtasks that were marked as completed during the date range
+    const completedQuery = {
+      userId,
+      completed: true,
+      $or: [
+        // Subtasks that were created as completed during the date range
+        {
+          createdAt: {
+            $gte: startDate,
+            $lte: endDate
+          }
+        },
+        // Subtasks that were marked as completed during the date range (using completedAt field)
+        {
+          completedAt: {
+            $gte: startDate,
+            $lte: endDate
+          }
+        }
+      ]
+    };
+
     const [totalSubtasks, completedSubtasks] = await Promise.all([
       Subtask.countDocuments(baseQuery),
-      Subtask.countDocuments({ ...baseQuery, completed: true })
+      Subtask.countDocuments(completedQuery)
     ]);
+
+    console.log(`🔍 getSubtaskStatsByDateRange - totalSubtasks: ${totalSubtasks}, completedSubtasks: ${completedSubtasks}`);
 
     return {
       completed: completedSubtasks,

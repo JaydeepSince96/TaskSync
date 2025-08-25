@@ -8,6 +8,7 @@ export interface ISubtask extends Document {
   userId: mongoose.Types.ObjectId; // Reference to User
   startDate?: Date;
   endDate?: Date;
+  completedAt?: Date; // Track when the subtask was completed
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,6 +43,11 @@ const SubtaskSchema = new Schema<ISubtask>(
     endDate: {
       type: Date,
       required: false
+    },
+    completedAt: {
+      type: Date,
+      required: false,
+      index: true // Index for better query performance on completion date
     }
   },
   {

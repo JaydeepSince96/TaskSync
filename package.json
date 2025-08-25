@@ -4,7 +4,8 @@
   "main": "dist/app.js",
   "scripts": {
     "start": "node dist/app.js",
-    "build": "tsc",
+    "start:node": "node dist/app.js",
+    "build": "npx tsc",
     "dev": "nodemon src/app.ts",
     "migrate": "npx ts-node src/migrations/run-migrations.ts"
   },
